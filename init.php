@@ -73,9 +73,6 @@ hws_alias_namespace_functions('hws_base_tools', __NAMESPACE__);
 
 
 
-    /**
- * Initialize GitHub Updater only after plugins have loaded and i18n is ready.
- */
 
  // Hook to acf/init to ensure ACF is initialized before running any ACF-related code
 
@@ -127,6 +124,7 @@ include_once("activate-snippets.php");
 
 add_action('acf/init', function() {
   //  if (is_admin()) {
+  /*
     include_once("register-acf-structure-theme-options.php");
     include_once("register-acf-structures.php");
     include_once("register-acf-user-profile.php");
@@ -135,6 +133,7 @@ add_action('acf/init', function() {
 
     activate_snippets("acf");
     //register_verified_profile_custom_fields();
+    */
  //   }
      
 }, 11 );
@@ -142,6 +141,7 @@ add_action('acf/init', function() {
 add_action('init', function() { 
 
     if(is_admin()){
+        /*
 include_once("snippet-adjust-profiles-category-meta-box.php");
     include_once("snippet-adjust-wp-admin-for-profile-managers.php");
     include_once("snippet-wp-admin-user-page-functionality.php");
@@ -175,7 +175,7 @@ include_once("snippet-adjust-profiles-category-meta-box.php");
 
     
     activate_snippets("admin");
-    }
+ 
 
     include_once("snippet-claim-profile-functionality.php");
     include_once("snippet-faviconn-for-verified-pages.php");
@@ -184,7 +184,8 @@ include_once("settings-dashboard-snippets.php");
 include_once("shortcodes.php");
 include_once("snippet-shortcodes-entities.php");
 activate_snippets("non_admin");
- 
+ */
+}
 }, 11 );
   
 
@@ -211,7 +212,7 @@ function get_snippets($type = "")
             'function'          => 'enable_acf_theme_options',
             'scope_admin_only'  => false
 
-        ],
+        ],/*
         [
             'id'          => 'register_profile_custom_post_type',
             'name'        => 'register_profile_custom_post_type',
@@ -255,7 +256,7 @@ function get_snippets($type = "")
             'description' => display_acf_structure("group_verified_profiles_settings"),
             'info'        => '',
             'function'    => 'register_verified_profile_pages_custom_fields'
-        ]
+        ]*/
     ];
 
     $snippet_non_admin = [
@@ -267,11 +268,12 @@ function get_snippets($type = "")
             'info'        => '',
             'function'    => 'enable_snippet_faviconn_for_verified_pages'
         ],
+        /*
         [
             'id'          => 'enable_snippet_claim_profile_functionality',
             'name'        => 'enable_snippet_claim_profile_functionality',
             'description' => '',
-            'info'        => '',
+            'info'        => '', 
             'function'    => 'enable_snippet_claim_profile_functionality'
         ],
         [
@@ -288,13 +290,13 @@ function get_snippets($type = "")
             'description' => get_formatted_shortcode_list(__NAMESPACE__."\get_verified_profile_shortcodes"),
             'info'        => '',
             'function'    => 'enable_snippet_verified_profile_shortcodes'
-        ]
+        ]*/
     ];
   //  $_verified_profile_settings    = get_verified_profile_settings();
 
     $snippets_admin = [
 
-        [
+     /*   [
             'id'               => 'add_wp_admin_add_featured_image_to_events',
             'name'             => 'add_wp_admin_add_featured_image_to_events',
             'description'      => '',
@@ -356,7 +358,7 @@ function get_snippets($type = "")
             'description' => '',
             'info'        => '',
             'function'    => 'enable_snippet_wp_admin_user_page_functionality'
-        ],
+        ],*/
 
     ];
 
