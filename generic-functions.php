@@ -75,3 +75,62 @@ foreach ((array) $alias_classes as $class_name) {
 
 return true;
 }
+
+ 
+
+
+/**
+ * Validate FTP credentials by attempting to connect and log in.
+ *
+ * @param string $host     FTP host (e.g. 'ftp.example.com').
+ * @param string $username FTP username.
+ * @param string $password FTP password.
+ * @param int    $port     FTP port (default: 21).
+ * @param int    $timeout  Connection timeout in seconds (default: 90).
+ * @return bool True if login succeeds, false on any failure.
+ */
+if ( ! function_exists( 'validate_ftp_credentials' ) ) {
+    function validate_ftp_credentials( $host, $username, $password, $port = 21, $timeout = 90 ) {
+        // suppress warnings in case of connection failure
+        $conn = @ftp_connect( $host, $port, $timeout );
+        if ( ! $conn ) {
+            return false;
+        }
+
+        $logged_in = @ftp_login( $conn, $username, $password );
+        @ftp_close( $conn );
+
+        return (bool) $logged_in;
+    }
+}
+
+/**
+ * Retrieve the current working directory on the FTP server.
+ *
+ * @param string $host     FTP host (e.g. 'ftp.example.com').
+ * @param string $username FTP username.
+ * @param string $password FTP password.
+ * @param int    $port     FTP port (default: 21).
+ * @param int    $timeout  Connection timeout in seconds (default: 90).
+ * @return string|false The remote path on success, or false on any failure.
+ */
+if ( ! function_exists( 'get_ftp_remote_path' ) ) {
+    function get_ftp_remote_path( $host, $username, $password, $port = 21, $timeout = 90 ) {
+        // suppress warnings in case of connection failure
+        $conn = @ftp_connect( $host, $port, $timeout );
+        if ( ! $conn ) {
+            return false;
+        }
+
+        $logged_in = @ftp_login( $conn, $username, $password );
+        if ( ! $logged_in ) {
+            @ftp_close( $conn );
+            return false;
+        }
+
+        $remote_path = @ftp_pwd( $conn );
+        @ftp_close( $conn );
+
+        return $remote_path !== false ? $remote_path : false;
+    }
+}

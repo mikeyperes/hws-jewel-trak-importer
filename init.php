@@ -4,9 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 1.0
-
-
+Version: 1.1
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -123,6 +121,9 @@ include_once("activate-snippets.php");
 
 
 add_action('acf/init', function() {
+    include_once("acf-register-theme-options.php");
+    activate_snippets("acf");
+    
   //  if (is_admin()) {
   /*
     include_once("register-acf-structure-theme-options.php");
@@ -131,66 +132,35 @@ add_action('acf/init', function() {
     include_once("register-acf-verified-profile.php");
 
 
-    activate_snippets("acf");
+ 
     //register_verified_profile_custom_fields();
     */
- //   }
+ //   } 
      
 }, 11 );
 
 add_action('init', function() { 
 
     if(is_admin()){
-        /*
-include_once("snippet-adjust-profiles-category-meta-box.php");
-    include_once("snippet-adjust-wp-admin-for-profile-managers.php");
-    include_once("snippet-wp-admin-user-page-functionality.php");
-    include_once("snippet-post-functionality.php");
+        include_once("settings-dashboard-snippets.php");
+        include_once("settings-dashboard-plugin-info.php");
+        include_once("settings-dashboard.php");
+        include_once("settings-event-handling.php");
 
-   // include_once("snippet-wp-admin-adjust-table-for-unclaimed-profiles.php");
-   //include_once("snippet-woocommerce-base.php");
-    //include_once("snippet-woocommerce-stripe-integration.php");
+        include_once("snippet-run-product-import.php");
+        include_once("snippet-run-product-delete.php");
 
-    include_once("snippet-profile-post-wp-admin-functionality.php");
-    include_once("snippet-wp-admin-user-page-optional-functionality.php");
-    include_once("snippet-disable-password-reset.php");
+        activate_snippets("admin");
 
-    include_once("snippet-wp-admin-add-featured-image-to-events.php");
-    include_once("snippet-wp-admin-filter-featured-profiles.php");
-
-
-    // don’t load anything on the front-end
-
-    include_once("profile-manager-dashboard.php");
-    include_once("settings-dashboard-define-pages-and-listing-grids.php");
-
-    include_once("settings-dashboard-system-checks.php");
-    include_once("settings-dashboard-plugin-info.php");
-    include_once("settings-dashboard-plugin-checks.php");
-    include_once("settings-event-handling.php");
-    include_once("setting-dashboard-process-schema-objects.php");
-
-
-    include_once("settings-dashboard.php");
-
-    
-    activate_snippets("admin");
- 
-
-    include_once("snippet-claim-profile-functionality.php");
-    include_once("snippet-faviconn-for-verified-pages.php");
-include_once("snippet-muckrack-functionality.php");
-include_once("settings-dashboard-snippets.php");
-include_once("shortcodes.php");
-include_once("snippet-shortcodes-entities.php");
-activate_snippets("non_admin");
- */
 }
+
+
+
+
+
+
 }, 11 );
   
-
-
- 
 
 
 
@@ -207,20 +177,12 @@ function get_snippets($type = "")
             'id'                => 'enable_acf_theme_options',
             'name'              => 'enable_acf_theme_options',
             'description'       => '',
-            'info'              => display_acf_structure(["group_6850930366d8f"]),
+            'info'              => display_acf_structure(["group_68633c8e28585"]),
 
             'function'          => 'enable_acf_theme_options',
             'scope_admin_only'  => false
 
-        ],/*
-        [
-            'id'          => 'register_profile_custom_post_type',
-            'name'        => 'register_profile_custom_post_type',
-            'description' => '',
-            'info'        => '',
-           // 'info' => display_cpt_structure($_verified_profile_settings['slug']),
-            'function'    => 'register_profile_custom_post_type'
-        ],
+        ],/*s
         [
             'id'          => 'register_profile_general_acf_fields',
             'name'        => 'register_profile_acf_fields',
@@ -235,55 +197,13 @@ function get_snippets($type = "")
             ),
             'info'     => '',
             'function' => 'register_profile_general_acf_fields'
-        ],
-        [
-            'id'          => 'register_verified_profile_custom_fields',
-            'name'        => 'register_verified_profile_custom_fields',
-            'description' => display_acf_structure(["group_67e39e4171b16"]),
-            'info'        => '',
-            'function'    => 'register_verified_profile_custom_fields'
-         ],
-         [
-            'id'          => 'register_user_custom_fields',
-            'name'        => 'register_user_custom_fields',
-            'description' => display_acf_structure("group_verified_profiles_settings"),
-            'info'        => '',
-            'function'    => 'register_user_custom_fields'
-        ],
-        [
-            'id'          => 'register_verified_profile_pages_custom_fields',
-            'name'        => 'register_verified_profile_pages_custom_fields',
-            'description' => display_acf_structure("group_verified_profiles_settings"),
-            'info'        => '',
-            'function'    => 'register_verified_profile_pages_custom_fields'
-        ]*/
+        ],*/
     ];
 
     $snippet_non_admin = [
-        //I don't know what this is
-        [
-            'id'          => 'enable_snippet_faviconn_for_verified_pages',
-            'name'        => 'enable_snippet_faviconn_for_verified_pages',
-            'description' => '',
-            'info'        => '',
-            'function'    => 'enable_snippet_faviconn_for_verified_pages'
-        ],
-        /*
-        [
-            'id'          => 'enable_snippet_claim_profile_functionality',
-            'name'        => 'enable_snippet_claim_profile_functionality',
-            'description' => '',
-            'info'        => '', 
-            'function'    => 'enable_snippet_claim_profile_functionality'
-        ],
-        [
-            'id'          => 'enable_snippet_muckrack_functionality',
-            'name'        => 'enable_snippet_muckrack_functionality',
-            'description' => get_formatted_shortcode_list(__NAMESPACE__."\get_muckrack_shortcodes"),
-            'info'        => '',
-            'function'    => 'enable_snippet_muckrack_functionality'
-        ],
 
+        /*
+  
         [
             'id'          => 'enable_snippet_verified_profile_shortcodes',
             'name'        => 'enable_snippet_verified_profile_shortcodes',
@@ -296,16 +216,32 @@ function get_snippets($type = "")
 
     $snippets_admin = [
 
-     /*   [
-            'id'               => 'add_wp_admin_add_featured_image_to_events',
-            'name'             => 'add_wp_admin_add_featured_image_to_events',
+
+        [
+            'id'               => 'enable_product_importer',
+            'name'             => 'enable_product_importer',
             'description'      => '',
             'info'             => '',
 
-            'function'         => 'add_wp_admin_add_featured_image_to_events',
+            'function'         => 'enable_product_importer',
             'scope_admin_only' => true
 
         ],
+
+        [
+            'id'               => 'enable_product_importer_process_deletes',
+            'name'             => 'enable_product_importer_process_deletes',
+            'description'      => '',
+            'info'             => '',
+
+            'function'         => 'enable_product_importer_process_deletes',
+            'scope_admin_only' => true
+
+        ],
+        
+
+
+        /*
         [
             'id'          => 'snippet_post_functionality',
             'name'        => 'snippet_post_functionality',
@@ -314,51 +250,8 @@ function get_snippets($type = "")
             'function'    => 'snippet_post_functionality'
         ],
 
-        [
-            'id'          => 'enable_snippet_wp_admin_user_page_functionality',
-            'name'        => 'enable_snippet_wp_admin_user_page_functionality',
-            'description' => '',
-            'info'        => '',
-            'function'    => 'enable_snippet_wp_admin_user_page_functionality'
-        ],
-        
-        [
-            'id'          => 'enable_snippet_adjust_profiles_category_meta_box',
-            'name'        => 'enable_snippet_adjust_profiles_category_meta_box',
-            'description' => '',
-            'info'        => '',
-            'function'    => 'enable_snippet_adjust_profiles_category_meta_box'
-        ],
-        [
-            'id'          => 'enable_snippet_profile_post_wp_admin_functionality',
-            'name'        => 'enable_snippet_profile_post_wp_admin_functionality',
-            'description' => '',
-            'info'        => '',
-            'function'    => 'enable_snippet_profile_post_wp_admin_functionality'
-        ],
-        
-        [
-            'id'          => 'enable_snippet_wp_admin_user_page_optional_functionality',
-            'name'        => 'enable_snippet_wp_admin_user_page_optional_functionality',
-            'description' => '',
-            'info'        => '',
-            'function'    => 'enable_snippet_wp_admin_user_page_optional_functionality'
-        ],
-
-        [
-            'id'          => 'enable_snippet_disable_password_reset',
-            'name'        => 'enable_snippet_disable_password_reset',
-            'description' => '',
-            'info'        => '',
-            'function'    => 'enable_snippet_disable_password_reset'
-        ],
-        [
-            'id'          => 'enable_snippet_wp_admin_user_page_functionality',
-            'name'        => 'enable_snippet_wp_admin_user_page_functionality',
-            'description' => '',
-            'info'        => '',
-            'function'    => 'enable_snippet_wp_admin_user_page_functionality'
-        ],*/
+   
+        */
 
     ];
 
