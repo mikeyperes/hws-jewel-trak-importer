@@ -311,30 +311,55 @@ $all_snippets = array_merge($snippets_acf, $snippets_admin, $snippets_non_admin)
                         write_log("Option '{$snippet_id}' updated successfully.");
                         //wp_send_json_success("Option '{$snippet_id}' updated successfully.");
                           if ($snippet_id === 'enable_product_importer') {
-                                // Send the HTML block for enable_product_importer
                                 ob_start();
                                 ?>
                                 <div class="snippet-message">
-                                    <?php if (get_option('enable_product_importer')) : ?>
-                                        <div class="snippet_active" style="margin-top:20px; padding:10px; border:1px solid #4CAF50; background:#e8f5e9; color:#2e7d32;">
-                                            <h3>Product Importer</h3>
-                                            <p>The Product Importer is <strong>enabled</strong>.</p>
-                                            <p>Run the import by visiting this URL (must be logged in as admin):</p>
-                                            <a href="<?php echo esc_url(admin_url('?run_import=1')); ?>" target="_blank">
-                                                <?php echo esc_html(admin_url('?run_import=1')); ?>
-                                            </a>
-                                        </div>
-                                    <?php else : ?>
-                                        <div class="snippet_active" style="margin-top:20px; padding:10px; border:1px solid #ccc; background:#f7f7f7; color:#555;">
-                                            <p>The Product Importer is currently <strong>disabled</strong>. Enable it above to see the import URL.</p>
-                                        </div>
-                                    <?php endif; ?>
-
+                                  <?php if (get_option('enable_product_importer')) : ?>
+                                    <div class="snippet_active" style="margin-top:20px; padding:10px; border:1px solid #4CAF50; background:#e8f5e9; color:#2e7d32;">
+                                      <h3>Product Importer</h3>
+                                      <p>The Product Importer is <strong>enabled</strong>.</p>
+                                      <p>Run the import by visiting this URL (must be logged in as admin):</p>
+                                      <a href="<?php echo esc_url(admin_url('?run_import=1')); ?>" target="_blank">
+                                        <?php echo esc_html(admin_url('?run_import=1')); ?>
+                                      </a>
+                                    </div>
+                                  <?php else : ?>
+                                    <div class="snippet_active" style="margin-top:20px; padding:10px; border:1px solid #ccc; background:#f7f7f7; color:#555;">
+                                      <p>The Product Importer is currently <strong>disabled</strong>. Enable it above to see the import URL.</p>
+                                    </div>
+                                  <?php endif; ?>
                                 </div>
                                 <?php
                                 $html = ob_get_clean();
                                 wp_send_json_success($html);
-                            } else {
+
+                              } elseif ($snippet_id === 'enable_product_importer_process_deletes') {
+                                ob_start();
+                                ?>
+                                <div class="snippet-message">
+                                  <?php if (get_option('enable_product_importer_process_deletes')) : ?>
+                                    <div class="snippet_active" style="margin-top:20px; padding:10px; border:1px solid #4CAF50; background:#e8f5e9; color:#2e7d32;">
+                                      <h3>Product Process Delete</h3>
+                                      <p>The Product Importer process Delete is <strong>enabled</strong>.</p>
+                                      <p>Run the Delete Process by visiting this URL (must be logged in as admin):</p>
+                                      <a href="<?php echo esc_url(admin_url('?run_delete=1')); ?>" target="_blank">
+                                        <?php echo esc_html(admin_url('?run_delete=1')); ?>
+                                      </a>
+                                    </div>
+                                  <?php else : ?>
+                                    <div class="snippet_active" style="margin-top:20px; padding:10px; border:1px solid #ccc; background:#f7f7f7; color:#555;">
+                                      <p>The Product Importer process Delete is currently <strong>disabled</strong>. Enable it above to see the Delete Product URL.</p>
+                                    </div>
+                                  <?php endif; ?>
+                                </div>
+                                <?php
+                                $html = ob_get_clean();
+                                wp_send_json_success($html);
+
+                              }
+                                                        
+
+                            else {
                                 // For other snippets, send simple success message
                                 wp_send_json_success("Option '{$snippet_id}' updated successfully.");
                             }

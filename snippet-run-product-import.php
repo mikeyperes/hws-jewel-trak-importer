@@ -1,5 +1,9 @@
 <?php namespace hws_jewel_trak_importer;
 
+// 1) Public AJAX endpoints (no login required):
+
+add_action( 'wp_ajax_import_products_csv',       __NAMESPACE__ . '\\import_products_from_csv' );
+add_action( 'wp_ajax_nopriv_import_products_csv', __NAMESPACE__ . '\\import_products_from_csv' );
 
 function enable_product_importer()
 {
@@ -8,59 +12,104 @@ function enable_product_importer()
 
 // The main import function
 function import_products_from_csv() {
-    echo '<h2>Import started...</h2>';
-
-    /*******************  SETTINGS *****************/
-
-    // Change this path if your CSV is outside plugin folder (adjust accordingly)
-    define('CSV_IMPORT_DIR', $_SERVER['DOCUMENT_ROOT'] . "/products/");
-     define('CSV_IMPORT_FILE', CSV_IMPORT_DIR . 'SunsetJewelry.csv');
-    //define('CSV_IMPORT_FILE', ABSPATH . 'products/SunsetJewelry.csv');
-
-    if (!is_file(CSV_IMPORT_FILE)) {
-        echo "File " . CSV_IMPORT_FILE . " is not found.";
-        exit;
+    header( 'Content-Type: application/json; charset=utf-8' );
+ 
+  
+    if ( ! ( ( defined('DOING_AJAX') && DOING_AJAX ) ) ) {
+        echo wp_json_encode([
+            'success' => false,
+            'message' => 'Import not triggered.',
+            'data'    => null,
+        ]);  
+        wp_die();
     }
 
-    if (!is_readable(CSV_IMPORT_FILE)) {
-        echo "File " . CSV_IMPORT_FILE . " is not readable.";
-        exit;
+    /*******************  SETTINGS *****************/
+    define('CSV_IMPORT_DIR',  $_SERVER['DOCUMENT_ROOT'] . "/products/");
+    define('CSV_IMPORT_FILE', CSV_IMPORT_DIR . 'add_products.csv');
+
+    if (!is_file(CSV_IMPORT_FILE) || !is_readable(CSV_IMPORT_FILE)) {
+        echo wp_json_encode([
+            'success' => false,
+            'message' => 'CSV file is missing or unreadable.',
+            'data'    => null,
+        ]);
+        wp_die();
     }
 
     require_once(ABSPATH . 'wp-admin/includes/media.php');
     require_once(ABSPATH . 'wp-admin/includes/file.php');
     require_once(ABSPATH . 'wp-admin/includes/image.php');
 
-    $file = CSV_IMPORT_FILE;
+    $file          = CSV_IMPORT_FILE;
+    $total_count   = 0;
+    $imported      = 0;
+    $errors        = [];
+    $details       = [];
 
     if (($handle = fopen($file, 'r')) !== false) {
         $header = fgetcsv($handle);
-        $total_count = 0;
+        if (!$header) {
+            fclose($handle);
+            echo wp_json_encode([
+                'success' => false,
+                'message' => 'Could not read header row.',
+                'data'    => null,
+            ]);
+            wp_die();
+        }
 
         while (($data = fgetcsv($handle)) !== false) {
             $total_count++;
             $product_data = array_combine($header, $data);
+            $sku = isset($product_data['Sku']) ? $product_data['Sku'] : '';
 
             try {
                 $product_id = handle_product_import($product_data);
                 handle_product_images($product_id, $product_data);
                 handle_product_attributes($product_id, $product_data);
-                echo "Imported product SKU: " . esc_html($product_data['Sku']) . "<br>";
-            } catch (\Exception $e) { // global Exception class with backslash
-                echo 'Error importing product: ' . esc_html($e->getMessage()) . "<br>";
+
+                $imported++;
+                $details[] = [
+                    'row'        => $total_count,
+                    'sku'        => $sku,
+                    'product_id' => $product_id,
+                    'imported'   => true,
+                    'message'    => "Imported SKU: {$sku}",
+                ];
+            } catch (\Exception $e) {
+                $errors[] = $e->getMessage();
+                $details[] = [
+                    'row'        => $total_count,
+                    'sku'        => $sku,
+                    'product_id' => null,
+                    'imported'   => false,
+                    'message'    => $e->getMessage(),
+                ];
                 error_log('Error importing product: ' . $e->getMessage());
-                exit;
             }
         }
 
         fclose($handle);
 
-        echo '<h3>Import finished! Total products imported: ' . intval($total_count) . '</h3>';
-        exit;
+        echo wp_json_encode([
+            'success' => true,
+            'data'    => [
+                'processed_rows' => $total_count,
+                'imported'       => $imported,
+                'errors'         => $errors,
+                'details'        => $details,
+            ],
+        ]);
+        wp_die();
     } else {
-        echo 'Error opening CSV file.';
+        echo wp_json_encode([
+            'success' => false,
+            'message' => 'Error opening CSV file.',
+            'data'    => null,
+        ]);
         error_log('Error opening CSV file.');
-        exit;
+        wp_die();
     }
 }
 
@@ -219,12 +268,10 @@ function handle_product_attributes($product_id, $product_data) {
     update_post_meta($product_id, '_product_attributes', $attributes);
 }
 
-// Hook to admin_init to run import when requested via URL parameter
+// 2) Keep the admin_init hook for legacy ?run_import=1 calls
 add_action('admin_init', function() {
     if (isset($_GET['run_import']) && $_GET['run_import'] == 1) {
         import_products_from_csv();
         exit; // Stop further page loading after import
     }
 });
-
-
