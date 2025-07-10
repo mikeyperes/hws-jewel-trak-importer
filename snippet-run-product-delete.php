@@ -1,9 +1,9 @@
 <?php namespace hws_jewel_trak_importer;
 
 function enable_product_importer_process_deletes(){
-// 1) Register AJAX for logged-in and public
-add_action( 'wp_ajax_delete_products_csv',       __NAMESPACE__ . '\\delete_products_ajax' );
-add_action( 'wp_ajax_nopriv_delete_products_csv', __NAMESPACE__ . '\\delete_products_ajax' );
+    // 1) Register AJAX for logged-in and public
+    add_action( 'wp_ajax_delete_products_csv',       __NAMESPACE__ . '\\delete_products_ajax' );
+    add_action( 'wp_ajax_nopriv_delete_products_csv', __NAMESPACE__ . '\\delete_products_ajax' );
 }
 
 // 2) AJAX handler
@@ -18,7 +18,7 @@ function delete_products_ajax() {
             'message' => 'CSV file is missing or unreadable.',
             'data'    => null,
         ];
-        echo wp_json_encode( $response );
+        echo wp_json_encode( $response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
         wp_die();
     }
 
@@ -30,7 +30,7 @@ function delete_products_ajax() {
             'message' => 'Could not read header row.',
             'data'    => null,
         ];
-        echo wp_json_encode( $response );
+        echo wp_json_encode( $response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
         wp_die();
     }
 
@@ -48,20 +48,24 @@ function delete_products_ajax() {
         $row = array_combine( $header_keys, $data );
         $sku = isset( $row['sku'] ) ? trim( $row['sku'] ) : '';
 
-        $product_id = wc_get_product_id_by_sku( $sku );
+        $product_id  = wc_get_product_id_by_sku( $sku );
         $was_deleted = false;
         $msg         = '';
+        $permalink   = null;
 
         if ( $product_id ) {
-            // delete images & gallery
+            // get permalink before deletion
+            $permalink = get_permalink( $product_id );
+
+            // delete images & all media attachments
             delete_product_images_and_meta( $product_id );
             // delete the product
             wp_delete_post( $product_id, true );
             $deleted++;
             $was_deleted = true;
-            $msg         = "Deleted product ID {$product_id}";
+            $msg         = "Deleted product ID {$product_id}, this link ({$permalink}) will now return a 404.";
         } else {
-            $msg = "No product found for SKU “{$sku}”";
+            $msg = "No product found for SKU \"{$sku}\"";
         }
 
         $details[] = [
@@ -69,6 +73,7 @@ function delete_products_ajax() {
             'sku'         => $sku,
             'product_id'  => $product_id ?: null,
             'deleted'     => $was_deleted,
+            'permalink'   => $permalink,
             'message'     => $msg,
         ];
     }
@@ -84,22 +89,19 @@ function delete_products_ajax() {
         ],
     ];
 
-    echo wp_json_encode( $response );
+    echo wp_json_encode( $response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
     wp_die(); // terminate properly
 }
 
 function delete_product_images_and_meta( $product_id ) {
-    // delete gallery images
-    $images    = get_post_meta( $product_id, '_product_image_gallery', true );
-    $image_ids = explode( ',', $images );
-    foreach ( $image_ids as $image_id ) {
-        if ( $image_id ) {
-            wp_delete_attachment( intval( $image_id ), true );
-        }
+    // delete all attached images
+    $attachments = get_attached_media( 'image', $product_id );
+    foreach ( $attachments as $attachment ) {
+        wp_delete_attachment( $attachment->ID, true );
     }
 
-    // delete featured image
-    if ( $thumb = get_post_thumbnail_id( $product_id ) ) {
-        wp_delete_attachment( $thumb, true );
-    }
+    // remove gallery meta
+    delete_post_meta( $product_id, '_product_image_gallery' );
+    // remove featured image association
+    delete_post_meta( $product_id, '_thumbnail_id' );
 }
