@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 2.3
+Version: 3.0
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -136,7 +136,7 @@ if (!$acf_active) {
 }
 
 
-include_once("activate-snippets.php");
+//include_once("activate-snippets.php");
 
 
 add_action('acf/init', function() {
