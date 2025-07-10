@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 2.1
+Version: 2.2
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -50,6 +50,41 @@ class Config {
     }
 }
 
+
+
+public static function get_github_config() {
+    return [
+        // 1) The plugin’s WP-slug (must point to your initialization.php)
+        'slug'               => 'hws-jewel-trak-importer/init.php',
+
+        // 2) Your folder name on disk
+        'proper_folder_name' => 'hws-base-tools',
+
+        // 3) GitHub API endpoints & download URLs
+        'api_url' => 'https://api.github.com/repos/mikeyperes/hws-jewel-trak-importer', // GitHub API URL
+        'raw_url' => 'https://raw.github.com/mikeyperes/hws-jewel-trak-importer/main', // Raw GitHub URL
+        'github_url' => 'https://github.com/mikeyperes/hws-jewel-trak-importer', // GitHub repository URL
+        'zip_url' => 'https://github.com/mikeyperes/hws-jewel-trak-importer/archive/main.zip', // Zip URL for the latest version
+        // 4) HTTP settings
+        'sslverify'          => true,
+        'access_token'       => '',
+
+        // 5) WP compatibility info
+        'requires'           => '5.0',    // minimum WP version required
+        'tested'             => '6.0',    // tested up to this WP version
+        'readme'             => 'README.md',
+
+        // 6) Which file to pull “Version:” from
+        'plugin_starter_file'=> 'initialization.php',
+
+        // 7) Explicit plugin metadata (so we never scan PHP headers)
+        'plugin_name'        => 'HWS - Jewel Trak Importer',
+        'version'            => '7.4.1',
+        'author'             => 'Michael Peres',
+        'homepage'           => 'https://github.com/mikeyperes/hws-base-tools',
+        'description'        => 'Jewel Trak Importer.',
+    ];
+}
 
 
 
