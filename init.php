@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 2.2
+Version: 2.2    
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -32,25 +32,8 @@ class Config {
     public static $plugin_short_id = "hws_jt_importer";
     
 
-    // Add this method to return the GitHub config dynamically
-    public static function get_github_config() {
-        return array(
-            'slug' => plugin_basename(__FILE__), // Plugin slug
-            'proper_folder_name' => 'hws-jewel-trak-importer', // Proper folder name
-            'api_url' => 'https://api.github.com/repos/mikeyperes/hws-jewel-trak-importer', // GitHub API URL
-            'raw_url' => 'https://raw.github.com/mikeyperes/hws-jewel-trak-importer/main', // Raw GitHub URL
-            'github_url' => 'https://github.com/mikeyperes/hws-jewel-trak-importer', // GitHub repository URL
-            'zip_url' => 'https://github.com/mikeyperes/hws-jewel-trak-importer/archive/main.zip', // Zip URL for the latest version
-            'sslverify' => true, // SSL verification for the download
-            'requires' => '5.0', // Minimum required WordPress version
-            'tested' => '1.1', // Tested up to WordPress version
-            'readme' => 'README.md', // Readme file for version checking
-            'access_token' => '', // Access token if required
-        );
-    }
-}
 
-
+ 
 
 public static function get_github_config() {
     return [
@@ -75,7 +58,7 @@ public static function get_github_config() {
         'readme'             => 'README.md',
 
         // 6) Which file to pull “Version:” from
-        'plugin_starter_file'=> 'initialization.php',
+        'plugin_starter_file'=> 'init.php',
 
         // 7) Explicit plugin metadata (so we never scan PHP headers)
         'plugin_name'        => 'HWS - Jewel Trak Importer',
@@ -84,6 +67,7 @@ public static function get_github_config() {
         'homepage'           => 'https://github.com/mikeyperes/hws-base-tools',
         'description'        => 'Jewel Trak Importer.',
     ];
+}
 }
 
 

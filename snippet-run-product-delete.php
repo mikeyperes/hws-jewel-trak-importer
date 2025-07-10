@@ -1,8 +1,10 @@
 <?php namespace hws_jewel_trak_importer;
 
+function enable_product_importer_process_deletes(){
 // 1) Register AJAX for logged-in and public
 add_action( 'wp_ajax_delete_products_csv',       __NAMESPACE__ . '\\delete_products_ajax' );
 add_action( 'wp_ajax_nopriv_delete_products_csv', __NAMESPACE__ . '\\delete_products_ajax' );
+}
 
 // 2) AJAX handler
 function delete_products_ajax() {
