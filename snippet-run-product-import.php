@@ -290,7 +290,7 @@ function handle_product_images( $product_id, $product_data ) {
     return $skipped_urls;
 }
 
-function handle_product_attributes( $product_id, $product_data ) {
+function X_handle_product_attributes( $product_id, $product_data ) {
     write_log( "DEBUG: handle_product_attributes start for product {$product_id}", true );
     $map = [
         'pa_stonetypes'        => 'StoneTypes',
@@ -328,6 +328,162 @@ function handle_product_attributes( $product_id, $product_data ) {
     update_post_meta( $product_id, '_product_attributes', $attributes );
     write_log( "DEBUG: handle_product_attributes end for product {$product_id}", true );
 }
+
+
+
+
+
+
+
+
+
+
+function handle_product_attributes( $product_id, $product_data ) {
+    write_log( "DEBUG: handle_product_attributes start for product {$product_id}", true );
+
+    $attributes = [];
+
+    // 1) STATIC MAP (unchanged)
+    $static_map = [
+        'pa_stonetypes'        => 'StoneTypes',
+        'pa_stoneweights'      => 'StoneWeights',
+        'pa_watchmodel'        => 'WatchModel',
+        'pa_watchserialnumber' => 'WatchSerialNumber',
+        'pa_watchbandtype'     => 'WatchBandType',
+        'pa_watchdialtype'     => 'WatchDialType',
+        'pa_watchyear'         => 'WatchYear',
+        'pa_watchhasbox'       => 'WatchHasBox',
+        'pa_watchhaspapers'    => 'WatchHasPapers',
+        'pa_watchcondition'    => 'WatchCondition',
+        'pa_watchmovement'     => 'WatchMovement',
+        'pa_size'              => 'Size',
+        'pa_metaltype'         => 'MetalType',
+        'pa_goldcolor'         => 'GoldColor',
+    ];
+    foreach ( $static_map as $tax => $col ) {
+        if ( ! empty( $product_data[ $col ] ) ) {
+            $vals = array_map( 'trim', explode( '|', $product_data[ $col ] ) );
+            wp_set_object_terms( $product_id, $vals, $tax );
+            $attributes[ $tax ] = [
+                'name'         => $tax,
+                'value'        => $product_data[ $col ],
+                'position'     => count( $attributes ) + 1,
+                'is_visible'   => 1,
+                'is_variation' => 0,
+                'is_taxonomy'  => 1,
+            ];
+            write_log( "DEBUG: [static] set attribute {$tax} => " . implode( ',', $vals ), true );
+        }
+    }
+
+    // 2) DYNAMIC ACF‑BASED FIELDS (only when CSV value is non-empty)
+    $acf_rows = get_field( 'product_custom_fields', 'option' );
+    if ( is_array( $acf_rows ) ) {
+        foreach ( $acf_rows as $i => $row ) {
+            $display   = trim( $row['display_header'] );
+            $csv_key   = trim( $row['csv_header'] );
+            $attr_type = isset( $row['type'] ) && in_array( $row['type'], ['select','text'], true )
+                         ? $row['type']
+                         : 'select';
+            $visible   = ! empty( $row['visible'] ) ? 1 : 0;
+
+            if ( ! $display || ! $csv_key ) {
+                write_log( "DEBUG: skipping row {$i} missing display or csv_header", true );
+                continue;
+            }
+
+            // raw CSV value
+            $raw = isset( $product_data[ $csv_key ] ) ? trim( $product_data[ $csv_key ] ) : '';
+
+            // skip attribute entirely if no value
+            if ( '' === $raw ) {
+                write_log( "DEBUG: skipping '{$display}' because CSV value is empty", true );
+                continue;
+            }
+
+            if ( 'select' === $attr_type ) {
+                // register global attribute if needed
+                $attr_slug = sanitize_title( $display );               
+                $taxonomy  = wc_attribute_taxonomy_name( $attr_slug );
+
+                if ( ! taxonomy_exists( $taxonomy ) ) {
+                    $new_id = wc_create_attribute( [
+                        'attribute_name'   => $attr_slug,
+                        'attribute_label'  => $display,
+                        'attribute_type'   => 'select',
+                        'attribute_orderby'=> 'menu_order',
+                        'attribute_public' => 0,
+                    ] );
+                    if ( is_wp_error( $new_id ) ) {
+                        write_log( "ERROR: wc_create_attribute failed for {$display}: ".$new_id->get_error_message(), true );
+                        continue;
+                    }
+                    register_taxonomy( $taxonomy, ['product'], [
+                        'labels'       => ['name'=>$display],
+                        'hierarchical' => true,
+                        'show_ui'      => false,
+                        'query_var'    => true,
+                        'rewrite'      => false,
+                    ] );
+                    write_log( "DEBUG: registered taxonomy {$taxonomy}", true );
+                }
+
+                // split & insert terms
+                $terms = array_map( 'trim', explode( '|', $raw ) );
+                foreach ( $terms as $t ) {
+                    if ( ! term_exists( $t, $taxonomy ) ) {
+                        wp_insert_term( $t, $taxonomy );
+                        write_log( "DEBUG: inserted term '{$t}' into {$taxonomy}", true );
+                    }
+                }
+
+                // assign terms
+                wp_set_object_terms( $product_id, $terms, $taxonomy );
+                write_log( "DEBUG: assigned select terms for {$taxonomy}: ".implode(',', $terms), true );
+
+                $attributes[ $taxonomy ] = [
+                    'name'         => $taxonomy,
+                    'value'        => $raw,
+                    'position'     => count( $attributes ) + 1,
+                    'is_visible'   => $visible,
+                    'is_variation' => 0,
+                    'is_taxonomy'  => 1,
+                ];
+            } else {
+                // text attribute
+                write_log( "DEBUG: setting text attribute '{$display}' => '{$raw}'", true );
+                $attributes[ $display ] = [
+                    'name'         => $display,
+                    'value'        => $raw,
+                    'position'     => count( $attributes ) + 1,
+                    'is_visible'   => $visible,
+                    'is_variation' => 0,
+                    'is_taxonomy'  => 0,
+                ];
+            }
+
+            write_log( "DEBUG: [dynamic] added attribute for '{$display}'", true );
+        }
+    }
+
+    // 3) SAVE ALL ATTRIBUTES
+    write_log( "DEBUG: final attributes meta: ".print_r($attributes,true), true );
+    update_post_meta( $product_id, '_product_attributes', $attributes );
+    write_log( "DEBUG: handle_product_attributes end for product {$product_id}", true );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 add_action( 'admin_init', function() {
     if ( isset( $_GET['run_import'] ) && $_GET['run_import'] == 1 ) {

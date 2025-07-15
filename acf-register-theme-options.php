@@ -2,9 +2,13 @@
 
 function enable_acf_theme_options() {
 
-	if ( ! function_exists( 'acf_add_local_field_group' ) ) {
-		return;
-	}
+
+
+
+
+
+
+
 
 	acf_add_local_field_group( array(
 	'key' => 'group_68633c8e28585',
@@ -148,6 +152,152 @@ function enable_acf_theme_options() {
 	'description' => '',
 	'show_in_rest' => 0,
 ) );
+
+
+	acf_add_local_field_group( array(
+	'key' => 'group_68758203b9812',
+	'title' => 'Test',
+	'fields' => array(
+		array(
+			'key' => 'field_68758204085e5',
+			'label' => 'Product Custom Fields',
+			'name' => 'product_custom_fields',
+			'aria-label' => '',
+			'type' => 'repeater',
+			'instructions' => '',
+			'required' => 0,
+			'conditional_logic' => 0,
+			'wrapper' => array(
+				'width' => '',
+				'class' => '',
+				'id' => '',
+			),
+			'layout' => 'table',
+			'pagination' => 0,
+			'min' => 0,
+			'max' => 0,
+			'collapsed' => '',
+			'button_label' => 'Add Row',
+			'rows_per_page' => 20,
+			'sub_fields' => array(
+				array(
+					'key' => 'field_6875821d085e6',
+					'label' => 'Website Display Header',
+					'name' => 'display_header',
+					'aria-label' => '',
+					'type' => 'text',
+					'instructions' => '',
+					'required' => 0,
+					'conditional_logic' => 0,
+					'wrapper' => array(
+						'width' => '',
+						'class' => '',
+						'id' => '',
+					),
+					'default_value' => '',
+					'maxlength' => '',
+					'placeholder' => '',
+					'prepend' => '',
+					'append' => '',
+					'parent_repeater' => 'field_68758204085e5',
+				),
+				array(
+					'key' => 'field_6875828d085e7',
+					'label' => 'CSV Header',
+					'name' => 'csv_header',
+					'aria-label' => '',
+					'type' => 'text',
+					'instructions' => '',
+					'required' => 0,
+					'conditional_logic' => 0,
+					'wrapper' => array(
+						'width' => '',
+						'class' => '',
+						'id' => '',
+					),
+					'default_value' => '',
+					'maxlength' => '',
+					'placeholder' => '',
+					'prepend' => '',
+					'append' => '',
+					'parent_repeater' => 'field_68758204085e5',
+				),
+				
+				
+						array(
+					'key' => 'field_6875cd8fb46db',
+					'label' => 'Type',
+					'name' => 'type',
+					'aria-label' => '',
+					'type' => 'select',
+					'instructions' => '',
+					'required' => 0,
+					'conditional_logic' => 0,
+					'wrapper' => array(
+						'width' => '',
+						'class' => '',
+						'id' => '',
+					),
+					'choices' => array(
+						'text' => 'Text',
+						'select' => 'Select',
+					),
+					'default_value' => false,
+					'return_format' => 'value',
+					'multiple' => 0,
+					'allow_null' => 0,
+					'ui' => 0,
+					'ajax' => 0,
+					'placeholder' => '',
+					'parent_repeater' => 'field_68758204085e5',
+				),
+	
+					array(
+					'key' => 'field_6875d20122032',
+					'label' => 'Visible',
+					'name' => 'visible',
+					'aria-label' => '',
+					'type' => 'true_false',
+					'instructions' => '',
+					'required' => 0,
+					'conditional_logic' => 0,
+					'wrapper' => array(
+						'width' => '',
+						'class' => '',
+						'id' => '',
+					),
+					'message' => '',
+					'default_value' => 0,
+					'ui' => 0,
+					'ui_on_text' => '',
+					'ui_off_text' => '',
+					'parent_repeater' => 'field_6875a8204085e5',
+				),
+			
+			
+			),
+		),
+	),
+	'location' => array(
+		array(
+			array(
+				'param' => 'options_page',
+				'operator' => '==',
+				'value' => 'hws-jewel-trak-importer-theme-options',
+			),
+		),
+	),
+	'menu_order' => 0,
+	'position' => 'normal',
+	'style' => 'default',
+	'label_placement' => 'top',
+	'instruction_placement' => 'label',
+	'hide_on_screen' => '',
+	'active' => true,
+	'description' => '',
+	'show_in_rest' => 0,
+) );
+
 
 
 
