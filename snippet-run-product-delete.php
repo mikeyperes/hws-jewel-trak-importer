@@ -94,6 +94,8 @@ function delete_products_ajax() {
 }
 
 function delete_product_images_and_meta( $product_id ) {
+ 
+    return; 
     // delete all attached images
     $attachments = get_attached_media( 'image', $product_id );
     foreach ( $attachments as $attachment ) {

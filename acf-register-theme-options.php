@@ -251,7 +251,28 @@ function enable_acf_theme_options() {
 					'placeholder' => '',
 					'parent_repeater' => 'field_68758204085e5',
 				),
-	
+                array(
+                    'key'               => 'field_6875e5b3c9012',
+                    'label'             => 'ID',
+                    'name'              => 'id',
+                    'aria-label'        => '',
+                    'type'              => 'text',
+                    'instructions'      => '',
+                    'required'          => 0,
+                    'conditional_logic' => 0,
+                    'wrapper'           => array(
+                        'width' => '',
+                        'class' => '',
+                        'id'    => '',
+                    ),
+                    'default_value'     => '',
+                    'maxlength'         => '',
+                    'placeholder'       => '',
+                    'prepend'           => '',
+                    'append'            => '',
+                    'parent_repeater'   => 'field_68758204085e5',
+                ),
+                
 					array(
 					'key' => 'field_6875d20122032',
 					'label' => 'Visible',

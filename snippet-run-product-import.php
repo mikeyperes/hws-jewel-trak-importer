@@ -80,13 +80,16 @@ function import_products_from_csv() {
         while ( ( $data = fgetcsv( $handle ) ) !== false ) {
             $total_count++;
             $product_data = array_combine( $header, $data );
-            $sku = $product_data['Sku'] ?? '';
+            $sku          = $product_data['Sku'] ?? '';
             write_log( "DEBUG: Processing row {$total_count}, SKU={$sku}", true );
 
             try {
                 $product_id     = handle_product_import( $product_data );
                 $skipped_images = handle_product_images( $product_id, $product_data );
-                handle_product_attributes( $product_id, $product_data );
+                // NEW: capture returned ACF‑based attributes
+                $acf_fields     = handle_product_attributes( $product_id, $product_data );
+                // NEW: get the product permalink
+                $permalink      = get_permalink( $product_id );
 
                 $imported++;
                 $message = "Imported/Updated SKU: {$sku}";
@@ -98,9 +101,11 @@ function import_products_from_csv() {
                     'row'            => $total_count,
                     'sku'            => $sku,
                     'product_id'     => $product_id,
+                    'permalink'      => $permalink,
                     'imported'       => true,
                     'message'        => $message,
                     'skipped_images' => $skipped_images,
+                    'acf_fields'     => $acf_fields,
                 ];
             } catch ( \Exception $e ) {
                 $msg = "Failed to import SKU {$sku}: " . $e->getMessage();
@@ -147,6 +152,7 @@ function import_products_from_csv() {
     ]);
     wp_die();
 }
+
 
 function handle_product_import( $product_data ) {
     $sku = $product_data['Sku'];
@@ -336,8 +342,6 @@ function X_handle_product_attributes( $product_id, $product_data ) {
 
 
 
-
-
 function handle_product_attributes( $product_id, $product_data ) {
     write_log( "DEBUG: handle_product_attributes start for product {$product_id}", true );
 
@@ -376,15 +380,13 @@ function handle_product_attributes( $product_id, $product_data ) {
         }
     }
 
-    // 2) DYNAMIC ACF‑BASED FIELDS (only when CSV value is non-empty)
+    // 2) DYNAMIC ACF‑BASED FIELDS
     $acf_rows = get_field( 'product_custom_fields', 'option' );
     if ( is_array( $acf_rows ) ) {
         foreach ( $acf_rows as $i => $row ) {
-            $display   = trim( $row['display_header'] );
-            $csv_key   = trim( $row['csv_header'] );
-            $attr_type = isset( $row['type'] ) && in_array( $row['type'], ['select','text'], true )
-                         ? $row['type']
-                         : 'select';
+            $display   = trim( $row['display_header']   );
+            $csv_key   = trim( $row['csv_header']       );
+            $attr_type = in_array( $row['type'] ?? '', ['select','text'], true ) ? $row['type'] : 'select';
             $visible   = ! empty( $row['visible'] ) ? 1 : 0;
 
             if ( ! $display || ! $csv_key ) {
@@ -392,23 +394,21 @@ function handle_product_attributes( $product_id, $product_data ) {
                 continue;
             }
 
-            // raw CSV value
             $raw = isset( $product_data[ $csv_key ] ) ? trim( $product_data[ $csv_key ] ) : '';
-
-            // skip attribute entirely if no value
             if ( '' === $raw ) {
                 write_log( "DEBUG: skipping '{$display}' because CSV value is empty", true );
                 continue;
             }
 
-            if ( 'select' === $attr_type ) {
-                // register global attribute if needed
-                $attr_slug = sanitize_title( $display );               
-                $taxonomy  = wc_attribute_taxonomy_name( $attr_slug );
+            // --- USE 'id' WHEN SET ---
+            $custom_id = trim( $row['id'] ?? '' );
+            $slug      = $custom_id !== '' ? sanitize_title( $custom_id ) : sanitize_title( $display );
+            $taxonomy  = wc_attribute_taxonomy_name( $slug );
 
+            if ( 'select' === $attr_type ) {
                 if ( ! taxonomy_exists( $taxonomy ) ) {
                     $new_id = wc_create_attribute( [
-                        'attribute_name'   => $attr_slug,
+                        'attribute_name'   => $slug,
                         'attribute_label'  => $display,
                         'attribute_type'   => 'select',
                         'attribute_orderby'=> 'menu_order',
@@ -428,7 +428,6 @@ function handle_product_attributes( $product_id, $product_data ) {
                     write_log( "DEBUG: registered taxonomy {$taxonomy}", true );
                 }
 
-                // split & insert terms
                 $terms = array_map( 'trim', explode( '|', $raw ) );
                 foreach ( $terms as $t ) {
                     if ( ! term_exists( $t, $taxonomy ) ) {
@@ -437,11 +436,10 @@ function handle_product_attributes( $product_id, $product_data ) {
                     }
                 }
 
-                // assign terms
                 wp_set_object_terms( $product_id, $terms, $taxonomy );
-                write_log( "DEBUG: assigned select terms for {$taxonomy}: ".implode(',', $terms), true );
+                write_log( "DEBUG: assigned terms for {$taxonomy}: ".implode(',', $terms), true );
 
-                $attributes[ $taxonomy ] = [
+                $attributes[ $slug ] = [
                     'name'         => $taxonomy,
                     'value'        => $raw,
                     'position'     => count( $attributes ) + 1,
@@ -450,9 +448,8 @@ function handle_product_attributes( $product_id, $product_data ) {
                     'is_taxonomy'  => 1,
                 ];
             } else {
-                // text attribute
-                write_log( "DEBUG: setting text attribute '{$display}' => '{$raw}'", true );
-                $attributes[ $display ] = [
+                // TEXT ATTRIBUTE
+                $attributes[ $slug ] = [
                     'name'         => $display,
                     'value'        => $raw,
                     'position'     => count( $attributes ) + 1,
@@ -460,16 +457,18 @@ function handle_product_attributes( $product_id, $product_data ) {
                     'is_variation' => 0,
                     'is_taxonomy'  => 0,
                 ];
+                write_log( "DEBUG: set text attribute '{$slug}' => '{$raw}'", true );
             }
 
-            write_log( "DEBUG: [dynamic] added attribute for '{$display}'", true );
+            write_log( "DEBUG: [dynamic] added attribute for slug '{$slug}'", true );
         }
     }
 
-    // 3) SAVE ALL ATTRIBUTES
-    write_log( "DEBUG: final attributes meta: ".print_r($attributes,true), true );
+    // 3) SAVE & RETURN
     update_post_meta( $product_id, '_product_attributes', $attributes );
     write_log( "DEBUG: handle_product_attributes end for product {$product_id}", true );
+
+    return $attributes;
 }
 
 
