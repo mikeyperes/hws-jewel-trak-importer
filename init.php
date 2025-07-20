@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 3.9
+Version: 3.9.1
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -304,4 +304,65 @@ function get_snippets($type = "")
 }
 
 
-?>
+
+
+
+
+
+
+
+/**
+ * 1) Format any attribute whose label contains "Price" as $X,XXX
+ * 2) Paint the entire <tr> green for “Dealer Buy Price” (and XDealer Buy Price)
+ * 3) Paint the entire <tr> red   for “Dealer Memo Price”
+ * Only runs on the single‐product page.
+ */
+add_filter( 'woocommerce_display_product_attributes', __NAMESPACE__ . '\\format_price_rows', 10, 2 );
+function format_price_rows( $attributes, $product ) {
+    foreach ( $attributes as $key => $attr ) {
+        $label = $attr['label'];
+
+        // only affect rows with “price” in the label
+        if ( stripos( $label, 'price' ) === false ) {
+            continue;
+        }
+
+        // strip out HTML to get the raw number
+        $raw = wp_strip_all_tags( $attr['value'] );
+        // if it’s a number, format it
+        if ( is_numeric( $raw ) ) {
+            $num = floatval( $raw );
+            $attributes[ $key ]['value'] = '<p>$' . number_format( $num, 0 ) . '</p>';
+        }
+    }
+
+    return $attributes;
+}
+
+/**
+ * Inject inline CSS to color the entire <tr> based on the attribute key.
+ * WooCommerce renders <tr class="attribute_{$key}">, so we target those.
+ */
+add_action( 'wp_head', __NAMESPACE__ . '\\price_row_colors' );
+function price_row_colors() {
+    if ( ! is_product() ) {
+        return;
+    }
+    ?>
+    <style>
+      /* Dealer Buy Price & XDealer Buy Price → green */
+      tr.woocommerce-product-attributes-item--attribute_dealer-buy-price,
+      tr.woocommerce-product-attributes-item--attribute_xdealer-buy-price {
+        color: green !important;
+        font-weight:bold !important;
+      }
+      /* Dealer Memo Price → red */
+      tr.woocommerce-product-attributes-item--attribute_dealer-memo-price {
+        color: red !important;
+                font-weight:bold !important;
+      }
+    </style>
+
+
+    <?php
+}
