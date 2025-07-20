@@ -225,80 +225,16 @@ function handle_product_import( $product_data ) {
     return $product_id;
 }
 
-function handle_product_images( $product_id, $product_data ) {
-    write_log( "DEBUG: handle_product_images start for product {$product_id}", true );
-    write_log( "DEBUG: IMPORT_PHOTOS_WITH_FIFU = " . ( IMPORT_PHOTOS_WITH_FIFU ? 'true' : 'false' ), true );
-    write_log( "DEBUG: function_exists('fifu_dev_set_image_list') = " . ( function_exists( 'fifu_dev_set_image_list' ) ? 'true' : 'false' ), true );
 
-    $image_domain = $product_data['ImageDomain'];
-    $images       = explode( '|', $product_data['Images'] );
-    write_log( "DEBUG: raw image filenames = " . print_r( $images, true ), true );
 
-    $skipped_urls = []; 
 
-    // FIFU PRO: assign remote URLs via FIFU and skip local sideloading
-    if ( IMPORT_PHOTOS_WITH_FIFU ) {
-        // force-load the Pro dev helpers
-        if ( ! function_exists('fifu_dev_set_image_list') ) {
-          require_once WP_PLUGIN_DIR . '/fifu-premium/includes/util.php';
-        }
-        if ( function_exists('fifu_dev_set_image_list') ) {
-          write_log("DEBUG: entering FIFU branch", true);
-          $urls = array_map(fn($i)=>esc_url_raw($product_data['ImageDomain'].$i), explode('|',$product_data['Images']));
-          $ok   = fifu_dev_set_image_list( $product_id, implode('|',$urls) );
-          write_log("DEBUG: fifu_dev_set_image_list returned " . ($ok?'true':'false'), true);
-          return [];
-        }
-      }
-
-    write_log( "DEBUG: entering fallback sideload branch", true );
-
-    // Default fallback: sideload into Media Library
-    $existing_urls   = [];
-    $attached_images = get_attached_media( 'image', $product_id );
-    foreach ( $attached_images as $att ) {
-        if ( $u = get_post_meta( $att->ID, '_imported_image_url', true ) ) {
-            $existing_urls[] = $u;
-        }
-    }
-    write_log( "DEBUG: existing imported URLs = " . implode( ', ', $existing_urls ), true );
-
-    $gallery_ids = [];
-    foreach ( $images as $index => $img ) {
-        $url = esc_url_raw( $image_domain . $img );
-        if ( in_array( $url, $existing_urls, true ) ) {
-            write_log( "DEBUG: skipping existing {$url}", true );
-            $skipped_urls[] = $url;
-            continue;
-        }
-        $aid = media_sideload_image( $url, $product_id, '', 'id' );
-        if ( is_wp_error( $aid ) ) {
-            write_log( "DEBUG: sideload failed for {$url}: " . $aid->get_error_message(), true );
-            continue;
-        }
-        update_post_meta( $aid, '_imported_image_url', $url );
-        write_log( "DEBUG: sideloaded image ID={$aid}", true );
-
-        if ( $index === 0 ) {
-            set_post_thumbnail( $product_id, $aid );
-            write_log( "DEBUG: set_post_thumbnail ID={$aid}", true );
-        } else {
-            $gallery_ids[] = $aid;
-        }
-    }
-
-    if ( ! empty( $gallery_ids ) ) {
-        update_post_meta( $product_id, '_product_image_gallery', implode( ',', $gallery_ids ) );
-        write_log( "DEBUG: updated product gallery with IDs=" . implode( ',', $gallery_ids ), true );
-    }
-
-    write_log( "DEBUG: handle_product_images end for product {$product_id}", true );
-    return $skipped_urls;
-}
-
-function X_handle_product_attributes( $product_id, $product_data ) {
+function handle_product_attributes( $product_id, $product_data ) {
     write_log( "DEBUG: handle_product_attributes start for product {$product_id}", true );
-    $map = [
+
+    $attributes = [];
+
+    // 1) STATIC MAP (always taxonomy)
+    $static_map = [
         'pa_stonetypes'        => 'StoneTypes',
         'pa_stoneweights'      => 'StoneWeights',
         'pa_watchmodel'        => 'WatchModel',
@@ -314,12 +250,10 @@ function X_handle_product_attributes( $product_id, $product_data ) {
         'pa_metaltype'         => 'MetalType',
         'pa_goldcolor'         => 'GoldColor',
     ];
-
-    $attributes = [];
-    foreach ( $map as $tax => $col ) {
+    foreach ( $static_map as $tax => $col ) {
         if ( ! empty( $product_data[ $col ] ) ) {
-            $vals = explode( '|', $product_data[ $col ] );
-            wp_set_object_terms( $product_id, $vals, $tax );
+            $terms = array_map( 'trim', explode( '|', $product_data[ $col ] ) );
+            wp_set_object_terms( $product_id, $terms, $tax );
             $attributes[ $tax ] = [
                 'name'         => $tax,
                 'value'        => $product_data[ $col ],
@@ -328,12 +262,102 @@ function X_handle_product_attributes( $product_id, $product_data ) {
                 'is_variation' => 0,
                 'is_taxonomy'  => 1,
             ];
-            write_log( "DEBUG: set attribute {$tax} => " . implode( ',', $vals ), true );
+            write_log( "DEBUG: [static] set attribute {$tax} => " . implode( ',', $terms ), true );
         }
     }
+
+    // 2) DYNAMIC ACF‑BASED FIELDS (supports both text & select)
+    $acf_rows   = get_field( 'product_custom_fields', 'option' );
+    $price_keys = [ 'WholesalePrice', 'MemoPrice', 'YourPrice', 'RetailPrice', 'Appraisal' ];
+
+    if ( is_array( $acf_rows ) ) {
+        foreach ( $acf_rows as $row ) {
+            $display = trim( $row['display_header'] ?? '' );
+            $csv_key = trim( $row['csv_header']   ?? '' );
+            $raw     = isset( $product_data[ $csv_key ] ) ? trim( $product_data[ $csv_key ] ) : '';
+
+            if ( $display === '' || $csv_key === '' || $raw === '' ) {
+                write_log( "DEBUG: skipping ACF row missing display/csv_header or empty raw", true );
+                continue;
+            }
+
+            // use exact ID if provided, else derive slug
+            $custom_id = trim( $row['id'] ?? '' );
+            $slug      = $custom_id !== '' ? $custom_id : sanitize_title( $display );
+
+            // determine attribute type: ACF 'select' => taxonomy, else text
+            $attr_type = ( isset( $row['type'] ) && $row['type'] === 'select' ) ? 'select' : 'text';
+
+            // force price/appraisal always to text
+            if ( in_array( $csv_key, $price_keys, true ) ) {
+                $attr_type = 'text';
+            }
+
+            $visible = ! empty( $row['visible'] ) || in_array( $csv_key, $price_keys, true ) ? 1 : 0;
+
+            if ( $attr_type === 'select' ) {
+                $taxonomy = wc_attribute_taxonomy_name( $slug );
+                if ( ! taxonomy_exists( $taxonomy ) ) {
+                    $new_id = wc_create_attribute( [
+                        'attribute_name'   => $slug,
+                        'attribute_label'  => $display,
+                        'attribute_type'   => 'select',
+                        'attribute_orderby'=> 'menu_order',
+                        'attribute_public' => 0,
+                    ] );
+                    if ( is_wp_error( $new_id ) ) {
+                        write_log( "ERROR: wc_create_attribute failed for {$display}: " . $new_id->get_error_message(), true );
+                        continue;
+                    }
+                    register_taxonomy( $taxonomy, [ 'product' ], [
+                        'labels'       => [ 'name' => $display ],
+                        'hierarchical' => true,
+                        'show_ui'      => false,
+                        'query_var'    => true,
+                        'rewrite'      => false,
+                    ] );
+                    write_log( "DEBUG: registered taxonomy {$taxonomy}", true );
+                }
+
+                $terms = array_map( 'trim', explode( '|', $raw ) );
+                foreach ( $terms as $t ) {
+                    if ( ! term_exists( $t, $taxonomy ) ) {
+                        wp_insert_term( $t, $taxonomy );
+                        write_log( "DEBUG: inserted term '{$t}' into {$taxonomy}", true );
+                    }
+                }
+
+                wp_set_object_terms( $product_id, $terms, $taxonomy );
+                write_log( "DEBUG: assigned terms for {$taxonomy}: " . implode( ',', $terms ), true );
+
+                $attributes[ $slug ] = [
+                    'name'         => $taxonomy,
+                    'value'        => $raw,
+                    'position'     => count( $attributes ) + 1,
+                    'is_visible'   => $visible,
+                    'is_variation' => 0,
+                    'is_taxonomy'  => 1,
+                ];
+            } else { // text attribute
+                $attributes[ $slug ] = [
+                    'name'         => $display,
+                    'value'        => $raw,
+                    'position'     => count( $attributes ) + 1,
+                    'is_visible'   => $visible,
+                    'is_variation' => 0,
+                    'is_taxonomy'  => 0,
+                ];
+                write_log( "DEBUG: set text attribute '{$slug}' => '{$raw}'", true );
+            }
+        }
+    }
+
+    // 3) SAVE & RETURN
     update_post_meta( $product_id, '_product_attributes', $attributes );
     write_log( "DEBUG: handle_product_attributes end for product {$product_id}", true );
+    return $attributes;
 }
+
 
 
 
