@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 3.7
+Version: 3.8
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -81,8 +81,8 @@ if ( is_admin() ) {
 }
 
 
-
-hws_import_tool('GitHub_Updater.php', 'WP_GitHub_Updater');
+include_once("GitHub_Updater.php");
+//hws_import_tool('GitHub_Updater.php', 'WP_GitHub_Updater');
 // Automatically imports the class into your current namespace
 hws_alias_namespace_functions('hws_base_tools', __NAMESPACE__);
 
@@ -174,6 +174,7 @@ add_action('init', function() {
 
 
       include_once("settings-dashboard-importer-settings.php");
+      include_once("snippet-display-all-skus.php");
       activate_snippets("non_admin");
 
 
@@ -221,7 +222,15 @@ function get_snippets($type = "")
     ];
 
     $snippet_non_admin = [
+        [
+            'id'          => 'enable_display_all_skus',
+            'name'        => 'enable_display_all_skus',
+            'description' => '',
+            'info'        => '',
+            'function'    => 'enable_display_all_skus'
+        ]
 
+    ];
         /*
   
         [
@@ -231,7 +240,7 @@ function get_snippets($type = "")
             'info'        => '',
             'function'    => 'enable_snippet_verified_profile_shortcodes'
         ]*/
-    ];
+
   //  $_verified_profile_settings    = get_verified_profile_settings();
 
     $snippets_admin = [
