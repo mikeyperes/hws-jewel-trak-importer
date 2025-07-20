@@ -196,7 +196,7 @@ function get_snippets($type = "")
         [
             'id'                => 'enable_acf_theme_options',
             'name'              => 'enable_acf_theme_options',
-            'description'       => '',
+            'description'       => 'this enables abc',
             'info'              => display_acf_structure(["group_68633c8e28585"]),
 
             'function'          => 'enable_acf_theme_options',
