@@ -225,11 +225,13 @@ function get_snippets($type = "")
         [
             'id'          => 'enable_display_all_skus',
             'name'        => 'enable_display_all_skus',
-            'description' => '',
+            'description' => sprintf(
+                '<a href="%1$s" target="_blank">%1$s</a>',
+                admin_url( 'admin-ajax.php?action=display_skus' )
+            ),
             'info'        => '',
-            'function'    => 'enable_display_all_skus'
+            'function'    => 'enable_display_all_skus',
         ]
-
     ];
         /*
   
@@ -249,24 +251,27 @@ function get_snippets($type = "")
         [
             'id'               => 'enable_product_importer',
             'name'             => 'enable_product_importer',
-            'description'      => '',
+            'description'      => sprintf(
+                '<a href="%1$s" target="_blank">%1$s</a>',
+                admin_url( 'admin-ajax.php?action=import_products_csv' )
+            ),
             'info'             => '',
-
             'function'         => 'enable_product_importer',
-            'scope_admin_only' => true
-
+            'scope_admin_only' => true,
         ],
-
+        
         [
             'id'               => 'enable_product_importer_process_deletes',
             'name'             => 'enable_product_importer_process_deletes',
-            'description'      => '',
+            'description'      => sprintf(
+                '<a href="%1$s" target="_blank">%1$s</a>',
+                admin_url( 'admin-ajax.php?action=delete_products_csv' )
+            ),
             'info'             => '',
-
             'function'         => 'enable_product_importer_process_deletes',
-            'scope_admin_only' => true
-
+            'scope_admin_only' => true,
         ],
+        
         
 
 
