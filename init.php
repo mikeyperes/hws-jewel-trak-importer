@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 3.9.1
+Version: 4.0
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -365,4 +365,53 @@ function price_row_colors() {
 
 
     <?php
+}
+
+
+
+
+
+
+
+
+
+
+/**
+ * Add the attribute ID below each attribute name field
+ * in the Product Data → Attributes metabox.
+ */
+add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\\enqueue_attribute_id_script' );
+
+function enqueue_attribute_id_script( $hook ) {
+    // Only on the Add/Edit Product screens
+    if ( ! in_array( $hook, [ 'post.php', 'post-new.php' ], true ) ) {
+        return;
+    }
+
+    $screen = get_current_screen();
+    if ( 'product' !== $screen->post_type ) {
+        return;
+    }
+
+    // Inject inline JS after jQuery is loaded
+    wp_add_inline_script(
+        'jquery-core',
+        "(function($){
+            $(function(){
+                $('input[name^=\"attribute_ids\"]').each(function(){
+                    var attrID = $(this).val();
+                    if ( attrID && attrID !== '0' ) {
+                        $(this)
+                            .closest('td')
+                            .append(
+                                '<p class=\"attribute-id-display\" ' +
+                                'style=\"margin:4px 0 0;font-size:12px;color:#555;\">' +
+                                'ID: ' + attrID +
+                                '</p>'
+                            );
+                    }
+                });
+            });
+        })(jQuery);"
+    );
 }

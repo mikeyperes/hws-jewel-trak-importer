@@ -320,6 +320,51 @@ function enable_acf_theme_options() {
 ) );
 
 
+// Inside your enable_acf_theme_options() function, add this:
+acf_add_local_field_group( array(
+    'key'                   => 'group_general_settings',
+    'title'                 => 'General Settings',
+    'fields'                => array(
+        array(
+            'key'               => 'field_purchase_price_column',
+            'label'             => 'PurchasePrice Column',
+            'name'              => 'purchase_price_column',
+            'type'              => 'text',
+            'instructions'      => '',
+            'required'          => 0,
+            'conditional_logic' => 0,
+            'wrapper'           => array(
+                'width' => '',
+                'class' => '',
+                'id'    => '',
+            ),
+            'default_value'     => '',
+            'placeholder'       => '',
+            'prepend'           => '',
+            'append'            => '',
+            'maxlength'         => '',
+        ),
+    ),
+    'location'              => array(
+        array(
+            array(
+                'param'    => 'options_page',
+                'operator' => '==',
+                'value'    => 'hws-jewel-trak-importer-theme-options',
+            ),
+        ),
+    ),
+    'menu_order'            => 0,
+    'position'              => 'normal',
+    'style'                 => 'default',
+    'label_placement'       => 'top',
+    'instruction_placement' => 'label',
+    'hide_on_screen'        => '',
+    'active'                => true,
+    'description'           => '',
+    'show_in_rest'          => 0,
+) );
+
 
 
 	acf_add_options_page( array(

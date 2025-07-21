@@ -178,7 +178,20 @@ function handle_product_import( $product_data ) {
     $product->set_sku( $sku );
     $product->set_name( $product_data['Title'] );
     $product->set_description( $product_data['Description'] );
-    $product->set_regular_price( $product_data['RetailPrice'] );
+
+
+       // Determine which price column to use
+       $purchase_price_col = get_field( 'purchase_price_column', 'option' );
+       if ( ! empty( $purchase_price_col ) && isset( $product_data[ $purchase_price_col ] ) && '' !== $product_data[ $purchase_price_col ] ) {
+           $price_to_set = $product_data[ $purchase_price_col ];
+           write_log( "DEBUG: using purchase_price_column '{$purchase_price_col}' value={$price_to_set}", true );
+       } else {
+           $price_to_set = $product_data['RetailPrice'];
+           write_log( "DEBUG: falling back to RetailPrice value={$price_to_set}", true );
+       }
+       $product->set_regular_price( $price_to_set );
+
+       
     $product->set_manage_stock( true );
     $product->set_stock_quantity( $product_data['Quantity'] );
     $product->set_stock_status( $product_data['Status'] );
