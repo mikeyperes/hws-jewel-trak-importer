@@ -2,23 +2,27 @@
 
 defined( 'ABSPATH' ) || exit;
 
-
-
+/**
+ * Enable the CSV importer via AJAX.
+ */
 function enable_product_importer() {
-  //  add_action( 'plugins_loaded', __NAMESPACE__ . '\\enable_product_importer' );
-  // Hard‐coded switch: when true, use FIFU PRO to assign remote images instead of sideloading
-define( 'IMPORT_PHOTOS_WITH_FIFU', true );
-// 1) Public AJAX endpoints (no login required):
-add_action( 'wp_ajax_import_products_csv',       __NAMESPACE__ . '\\import_products_from_csv' );
-add_action( 'wp_ajax_nopriv_import_products_csv', __NAMESPACE__ . '\\import_products_from_csv' ); 
+    // Hard‐coded switch: when true, use FIFU PRO to assign remote images instead of sideloading
+    define( 'IMPORT_PHOTOS_WITH_FIFU', true );
+
+    // 1) Public AJAX endpoints (no login required):
+    add_action( 'wp_ajax_import_products_csv',       __NAMESPACE__ . '\\import_products_from_csv' );
+    add_action( 'wp_ajax_nopriv_import_products_csv', __NAMESPACE__ . '\\import_products_from_csv' );
 }
+add_action( 'plugins_loaded', __NAMESPACE__ . '\\enable_product_importer' );
 
-// The main import function
+/**
+ * The main import function
+ */
 function import_products_from_csv() {
-    write_log("DEBUG: import_products_from_csv start", true);
+    write_log( "DEBUG: import_products_from_csv start", true );
 
-    $current_timeout = ini_get('max_execution_time');
-    write_log("DEBUG: max_execution_time = {$current_timeout} seconds", true);
+    $current_timeout = ini_get( 'max_execution_time' );
+    write_log( "DEBUG: max_execution_time = {$current_timeout} seconds", true );
 
     header( 'Content-Type: application/json; charset=utf-8' );
     write_log( "DEBUG: headers sent", true );
@@ -86,10 +90,7 @@ function import_products_from_csv() {
             try {
                 $product_id     = handle_product_import( $product_data );
                 $skipped_images = handle_product_images( $product_id, $product_data );
-                // NEW: capture returned ACF‑based attributes
-                $acf_fields     = handle_product_attributes( $product_id, $product_data );
-                // NEW: get the product permalink
-                $permalink      = get_permalink( $product_id );
+                handle_product_attributes( $product_id, $product_data );
 
                 $imported++;
                 $message = "Imported/Updated SKU: {$sku}";
@@ -101,11 +102,9 @@ function import_products_from_csv() {
                     'row'            => $total_count,
                     'sku'            => $sku,
                     'product_id'     => $product_id,
-                    'permalink'      => $permalink,
                     'imported'       => true,
                     'message'        => $message,
                     'skipped_images' => $skipped_images,
-                    'acf_fields'     => $acf_fields,
                 ];
             } catch ( \Exception $e ) {
                 $msg = "Failed to import SKU {$sku}: " . $e->getMessage();
@@ -126,7 +125,7 @@ function import_products_from_csv() {
 
         $response_message = empty( $failed_items )
             ? "All {$imported} items imported successfully."
-            : "Some items failed to import:\n\n" . implode("\n", array_map(fn($m) => " - {$m}", $failed_items));
+            : "Some items failed to import:\n\n" . implode( "\n", array_map( fn( $m ) => " - {$m}", $failed_items ) );
 
         $response = [
             'success' => true,
@@ -153,11 +152,42 @@ function import_products_from_csv() {
     wp_die();
 }
 
-
+/**
+ * Create or update a single WooCommerce product.
+ * Now with SKU‐deduplication logic inserted, but no original lines removed.
+ */
 function handle_product_import( $product_data ) {
     $sku = $product_data['Sku'];
     write_log( "DEBUG: handle_product_import start SKU={$sku}", true );
 
+    // === SKU deduplication logic inserted below ===
+    $all_ids = wc_get_products([
+        'sku'    => $sku,
+        'limit'  => -1,
+        'return' => 'ids',
+    ]);
+    write_log( "DEBUG: SKU '{$sku}' dedupe found IDs: " . implode( ',', $all_ids ), true );
+
+    if ( count( $all_ids ) > 1 ) {
+        $keep_id = array_shift( $all_ids );
+        foreach ( $all_ids as $dup_id ) {
+            wp_delete_post( $dup_id, true );
+            write_log( "DEBUG: auto‑deleted duplicate product ID={$dup_id} for SKU='{$sku}'", true );
+        }
+        $dedupe_id = $keep_id;
+        write_log( "DEBUG: SKU '{$sku}' dedupe keeping ID={$keep_id}", true );
+    } elseif ( count( $all_ids ) === 1 ) {
+        $dedupe_id = $all_ids[0];
+        write_log( "DEBUG: SKU '{$sku}' dedupe single match ID={$dedupe_id}", true );
+    } else {
+        $dedupe_id = false;
+        write_log( "DEBUG: SKU '{$sku}' dedupe none found, will create new", true );
+    }
+    // === end deduplication logic ===
+
+    write_log( "DEBUG: handle_product_import continue after dedupe", true );
+
+    // original publish_date logic
     $publish_date = current_time( 'mysql' );
     if ( ! empty( $product_data['AcquiredDate'] ) ) {
         $date_obj = \DateTime::createFromFormat( 'Ymd_His', $product_data['AcquiredDate'] );
@@ -166,7 +196,15 @@ function handle_product_import( $product_data ) {
         }
     }
 
-    $existing_id = wc_get_product_id_by_sku( $sku );
+    // determine existing_id: use dedupe_id if available, else fallback to original lookup
+    if ( false !== $dedupe_id ) {
+        $existing_id = $dedupe_id;
+        write_log( "DEBUG: using dedupe existing_id={$existing_id}", true );
+    } else {
+        $existing_id = wc_get_product_id_by_sku( $sku );
+        write_log( "DEBUG: original lookup existing_id={$existing_id}", true );
+    }
+
     if ( $existing_id ) {
         $product = wc_get_product( $existing_id );
         write_log( "DEBUG: updating existing product ID={$existing_id}", true );
@@ -178,20 +216,7 @@ function handle_product_import( $product_data ) {
     $product->set_sku( $sku );
     $product->set_name( $product_data['Title'] );
     $product->set_description( $product_data['Description'] );
-
-
-       // Determine which price column to use
-       $purchase_price_col = get_field( 'purchase_price_column', 'option' );
-       if ( ! empty( $purchase_price_col ) && isset( $product_data[ $purchase_price_col ] ) && '' !== $product_data[ $purchase_price_col ] ) {
-           $price_to_set = $product_data[ $purchase_price_col ];
-           write_log( "DEBUG: using purchase_price_column '{$purchase_price_col}' value={$price_to_set}", true );
-       } else {
-           $price_to_set = $product_data['RetailPrice'];
-           write_log( "DEBUG: falling back to RetailPrice value={$price_to_set}", true );
-       }
-       $product->set_regular_price( $price_to_set );
-
-       
+    $product->set_regular_price( $product_data['RetailPrice'] );
     $product->set_manage_stock( true );
     $product->set_stock_quantity( $product_data['Quantity'] );
     $product->set_stock_status( $product_data['Status'] );
@@ -229,7 +254,7 @@ function handle_product_import( $product_data ) {
         }
     }
     // remove default if present
-    if ( ( $key = array_search( get_option('default_product_cat'), $category_ids ) ) !== false ) {
+    if ( ( $key = array_search( get_option( 'default_product_cat' ), $category_ids ) ) !== false ) {
         unset( $category_ids[ $key ] );
     }
     wp_set_object_terms( $product_id, $category_ids, 'product_cat' );
@@ -247,22 +272,21 @@ function handle_product_images( $product_id, $product_data ) {
     $images       = explode( '|', $product_data['Images'] );
     write_log( "DEBUG: raw image filenames = " . print_r( $images, true ), true );
 
-    $skipped_urls = []; 
+    $skipped_urls = [];
 
     // FIFU PRO: assign remote URLs via FIFU and skip local sideloading
     if ( IMPORT_PHOTOS_WITH_FIFU ) {
-        // force-load the Pro dev helpers
-        if ( ! function_exists('fifu_dev_set_image_list') ) {
-          require_once WP_PLUGIN_DIR . '/fifu-premium/includes/util.php';
+        if ( ! function_exists( 'fifu_dev_set_image_list' ) ) {
+            require_once WP_PLUGIN_DIR . '/fifu-premium/includes/util.php';
         }
-        if ( function_exists('fifu_dev_set_image_list') ) {
-          write_log("DEBUG: entering FIFU branch", true);
-          $urls = array_map(fn($i)=>esc_url_raw($product_data['ImageDomain'].$i), explode('|',$product_data['Images']));
-          $ok   = fifu_dev_set_image_list( $product_id, implode('|',$urls) );
-          write_log("DEBUG: fifu_dev_set_image_list returned " . ($ok?'true':'false'), true);
-          return [];
+        if ( function_exists( 'fifu_dev_set_image_list' ) ) {
+            write_log( "DEBUG: entering FIFU branch", true );
+            $urls = array_map( fn( $i ) => esc_url_raw( $product_data['ImageDomain'] . $i ), explode( '|', $product_data['Images'] ) );
+            $ok   = fifu_dev_set_image_list( $product_id, implode( '|', $urls ) );
+            write_log( "DEBUG: fifu_dev_set_image_list returned " . ( $ok ? 'true' : 'false' ), true );
+            return [];
         }
-      }
+    }
 
     write_log( "DEBUG: entering fallback sideload branch", true );
 
@@ -355,6 +379,12 @@ function X_handle_product_attributes( $product_id, $product_data ) {
 
 
 
+
+
+
+
+
+
 function handle_product_attributes( $product_id, $product_data ) {
     write_log( "DEBUG: handle_product_attributes start for product {$product_id}", true );
 
@@ -393,13 +423,15 @@ function handle_product_attributes( $product_id, $product_data ) {
         }
     }
 
-    // 2) DYNAMIC ACF‑BASED FIELDS
+    // 2) DYNAMIC ACF‑BASED FIELDS (only when CSV value is non-empty)
     $acf_rows = get_field( 'product_custom_fields', 'option' );
     if ( is_array( $acf_rows ) ) {
         foreach ( $acf_rows as $i => $row ) {
-            $display   = trim( $row['display_header']   );
-            $csv_key   = trim( $row['csv_header']       );
-            $attr_type = in_array( $row['type'] ?? '', ['select','text'], true ) ? $row['type'] : 'select';
+            $display   = trim( $row['display_header'] );
+            $csv_key   = trim( $row['csv_header'] );
+            $attr_type = isset( $row['type'] ) && in_array( $row['type'], ['select','text'], true )
+                         ? $row['type']
+                         : 'select';
             $visible   = ! empty( $row['visible'] ) ? 1 : 0;
 
             if ( ! $display || ! $csv_key ) {
@@ -407,32 +439,40 @@ function handle_product_attributes( $product_id, $product_data ) {
                 continue;
             }
 
+            // raw CSV value
             $raw = isset( $product_data[ $csv_key ] ) ? trim( $product_data[ $csv_key ] ) : '';
+
+            // skip attribute entirely if no value
             if ( '' === $raw ) {
                 write_log( "DEBUG: skipping '{$display}' because CSV value is empty", true );
                 continue;
             }
 
-            // --- USE 'id' WHEN SET ---
-            $custom_id = trim( $row['id'] ?? '' );
-            $slug      = $custom_id !== '' ? sanitize_title( $custom_id ) : sanitize_title( $display );
-            $taxonomy  = wc_attribute_taxonomy_name( $slug );
+            // --- NEW: allow overriding the attribute slug via your ACF 'id' sub‑field ---
+            $custom_id = isset( $row['id'] ) ? trim( $row['id'] ) : '';
+            if ( $custom_id ) {
+                $attr_slug = sanitize_title( $custom_id );
+                write_log( "DEBUG: using custom ACF id '{$custom_id}' => slug '{$attr_slug}'", true );
+            } else {
+                $attr_slug = sanitize_title( $display );
+            }
+            $taxonomy = wc_attribute_taxonomy_name( $attr_slug );
 
             if ( 'select' === $attr_type ) {
                 if ( ! taxonomy_exists( $taxonomy ) ) {
                     $new_id = wc_create_attribute( [
-                        'attribute_name'   => $slug,
+                        'attribute_name'   => $attr_slug,
                         'attribute_label'  => $display,
                         'attribute_type'   => 'select',
                         'attribute_orderby'=> 'menu_order',
                         'attribute_public' => 0,
                     ] );
                     if ( is_wp_error( $new_id ) ) {
-                        write_log( "ERROR: wc_create_attribute failed for {$display}: ".$new_id->get_error_message(), true );
+                        write_log( "ERROR: wc_create_attribute failed for {$display}: " . $new_id->get_error_message(), true );
                         continue;
                     }
                     register_taxonomy( $taxonomy, ['product'], [
-                        'labels'       => ['name'=>$display],
+                        'labels'       => ['name' => $display],
                         'hierarchical' => true,
                         'show_ui'      => false,
                         'query_var'    => true,
@@ -450,9 +490,9 @@ function handle_product_attributes( $product_id, $product_data ) {
                 }
 
                 wp_set_object_terms( $product_id, $terms, $taxonomy );
-                write_log( "DEBUG: assigned terms for {$taxonomy}: ".implode(',', $terms), true );
+                write_log( "DEBUG: assigned select terms for {$taxonomy}: " . implode( ',', $terms ), true );
 
-                $attributes[ $slug ] = [
+                $attributes[ $taxonomy ] = [
                     'name'         => $taxonomy,
                     'value'        => $raw,
                     'position'     => count( $attributes ) + 1,
@@ -461,8 +501,8 @@ function handle_product_attributes( $product_id, $product_data ) {
                     'is_taxonomy'  => 1,
                 ];
             } else {
-                // TEXT ATTRIBUTE
-                $attributes[ $slug ] = [
+                write_log( "DEBUG: setting text attribute '{$display}' => '{$raw}'", true );
+                $attributes[ $display ] = [
                     'name'         => $display,
                     'value'        => $raw,
                     'position'     => count( $attributes ) + 1,
@@ -470,32 +510,17 @@ function handle_product_attributes( $product_id, $product_data ) {
                     'is_variation' => 0,
                     'is_taxonomy'  => 0,
                 ];
-                write_log( "DEBUG: set text attribute '{$slug}' => '{$raw}'", true );
             }
 
-            write_log( "DEBUG: [dynamic] added attribute for slug '{$slug}'", true );
+            write_log( "DEBUG: [dynamic] added attribute for '{$display}'", true );
         }
     }
 
-    // 3) SAVE & RETURN
+    // 3) SAVE ALL ATTRIBUTES
+    write_log( "DEBUG: final attributes meta: " . print_r( $attributes, true ), true );
     update_post_meta( $product_id, '_product_attributes', $attributes );
     write_log( "DEBUG: handle_product_attributes end for product {$product_id}", true );
-
-    return $attributes;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 add_action( 'admin_init', function() {
     if ( isset( $_GET['run_import'] ) && $_GET['run_import'] == 1 ) {
