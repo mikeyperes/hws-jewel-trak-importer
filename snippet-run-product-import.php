@@ -166,6 +166,17 @@ function handle_product_import( $product_data ) {
         'limit'  => -1,
         'return' => 'ids',
     ]);
+    
+    // Filter out incorrect partial matches
+    $validated_ids = [];
+    foreach( $all_ids as $found_id ) {
+        $found_product = wc_get_product( $found_id );
+        if( $found_product && $found_product->get_sku() === $sku ) {
+            $validated_ids[] = $found_id;
+        }
+    }
+    $all_ids = $validated_ids;
+    
     write_log( "DEBUG: SKU '{$sku}' dedupe found IDs: " . implode( ',', $all_ids ), true );
 
     if ( count( $all_ids ) > 1 ) {
@@ -230,6 +241,8 @@ function handle_product_import( $product_data ) {
 
     // categories
     $category_ids = [];
+    $parent_category_ids = [];
+    
     foreach ( explode( '|', $product_data['Category'] ) as $cat_name ) {
         $cat  = str_replace( '&', '-', $cat_name );
         $term = get_term_by( 'name', $cat, 'product_cat' );
@@ -244,13 +257,38 @@ function handle_product_import( $product_data ) {
             $term_id = $term->term_id;
         }
         $category_ids[] = $term_id;
-        // include parent hierarchy
+        $parent_category_ids[] = $term_id;
+        
         $parent_id = $term->parent ?? 0;
         while ( $parent_id ) {
             $parent = get_term_by( 'id', $parent_id, 'product_cat' );
             if ( ! $parent ) break;
             $category_ids[] = $parent_id;
             $parent_id      = $parent->parent;
+        }
+    }
+
+    // subcategories
+    if ( ! empty( $product_data['SubCategory'] ) ) {
+        foreach ( explode( '|', $product_data['SubCategory'] ) as $subcat_name ) {
+            $subcat = str_replace( '&', '-', $subcat_name );
+            foreach ( $parent_category_ids as $parent_id ) {
+                $term = get_term_by( 'name', $subcat, 'product_cat' );
+                if ( $term && $term->parent == $parent_id ) {
+                    $term_id = $term->term_id;
+                } elseif ( ! $term ) {
+                    $res = wp_insert_term( $subcat, 'product_cat', ['parent' => $parent_id] );
+                    if ( is_wp_error( $res ) ) {
+                        write_log( "DEBUG: error creating subcategory '{$subcat}': " . $res->get_error_message(), true );
+                        continue;
+                    }
+                    $term_id = $res['term_id'];
+                } else {
+                    continue;
+                }
+                $category_ids[] = $term_id;
+                break;
+            }
         }
     }
     // remove default if present

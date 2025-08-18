@@ -110,8 +110,9 @@ add_action( 'admin_init', function() {
 
 // Array of plugins to check
 $plugins_to_check = [
-    'advanced-custom-fields-pro/acf.php',
-    'advanced-custom-fields-pro-temp/acf.php'
+    'advanced-custom-fields/acf.php',         // Free ACF
+    'advanced-custom-fields-pro/acf.php',     // ACF Pro
+    'advanced-custom-fields-pro-temp/acf.php' // ACF Pro temp
 ];
 
 // Initialize flags for active status
