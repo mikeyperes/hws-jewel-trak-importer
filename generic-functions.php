@@ -134,3 +134,86 @@ if ( ! function_exists( 'get_ftp_remote_path' ) ) {
         return $remote_path !== false ? $remote_path : false;
     }
 }
+
+/**
+ * Check if a WordPress plugin is installed and active.
+ *
+ * @param string $plugin_path Plugin path (e.g., 'advanced-custom-fields-pro/acf.php').
+ * @return array Array with two boolean values: [is_installed, is_active].
+ */
+function check_plugin_status($plugin_path) {
+    // Check if plugin file exists (installed)
+    $plugin_file = WP_PLUGIN_DIR . '/' . $plugin_path;
+    $is_installed = file_exists($plugin_file);
+    
+    // Check if plugin is active
+    $is_active = false;
+    if ($is_installed) {
+        // Include plugin.php if not already loaded
+        if (!function_exists('is_plugin_active')) {
+            require_once(ABSPATH . 'wp-admin/includes/plugin.php');
+        }
+        $is_active = is_plugin_active($plugin_path);
+    }
+    
+    return [$is_installed, $is_active];
+}
+
+/**
+ * Write to WordPress debug log if WP_DEBUG_LOG is enabled.
+ *
+ * @param string $message The message to log.
+ * @param bool $force_error Whether to treat as error log (optional, default false).
+ */
+function write_log($message, $force_error = false) {
+    // Only log if WP_DEBUG_LOG is enabled or if forced
+    if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG || $force_error) {
+        if (is_array($message) || is_object($message)) {
+            error_log(print_r($message, true));
+        } else {
+            error_log($message);
+        }
+    }
+}
+
+/**
+ * Display ACF field group structure information.
+ *
+ * @param array $group_ids Array of ACF field group IDs.
+ * @return string HTML formatted structure information.
+ */
+function display_acf_structure($group_ids) {
+    if (!function_exists('acf_get_field_group')) {
+        return '<em>ACF not available</em>';
+    }
+    
+    $output = '';
+    
+    foreach ((array) $group_ids as $group_id) {
+        $group = acf_get_field_group($group_id);
+        
+        if (!$group) {
+            $output .= "<p><strong>Group ID:</strong> {$group_id} (not found)</p>";
+            continue;
+        }
+        
+        $output .= "<div style='margin-bottom: 10px;'>";
+        $output .= "<p><strong>Group:</strong> " . esc_html($group['title']) . " (ID: {$group_id})</p>";
+        
+        // Get fields for this group
+        $fields = acf_get_fields($group_id);
+        if ($fields) {
+            $output .= "<ul style='margin-left: 20px;'>";
+            foreach ($fields as $field) {
+                $output .= "<li>" . esc_html($field['label']) . " (" . esc_html($field['name']) . ")</li>";
+            }
+            $output .= "</ul>";
+        } else {
+            $output .= "<p style='margin-left: 20px;'><em>No fields found</em></p>";
+        }
+        
+        $output .= "</div>";
+    }
+    
+    return $output ?: '<em>No field groups specified</em>';
+}
