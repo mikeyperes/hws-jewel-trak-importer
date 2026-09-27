@@ -5,7 +5,7 @@
         add_action('admin_init', 'acf_form_init');
     
         function acf_form_init() {
-            acf_form_head();
+            \Hexa\PluginCore\Fields\Form::head();
         }
         ?>
     

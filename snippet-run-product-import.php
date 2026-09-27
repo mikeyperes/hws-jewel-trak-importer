@@ -166,6 +166,11 @@ function handle_product_import( $product_data ) {
         'limit'  => -1,
         'return' => 'ids',
     ]);
+    // WooCommerce's sku query also matches partial SKUs; keep exact matches only.
+    $all_ids = array_values( array_filter( $all_ids, static function ( $found_id ) use ( $sku ) {
+        $found = wc_get_product( $found_id );
+        return $found && $found->get_sku() === $sku;
+    } ) );
     write_log( "DEBUG: SKU '{$sku}' dedupe found IDs: " . implode( ',', $all_ids ), true );
 
     if ( count( $all_ids ) > 1 ) {
@@ -216,7 +221,7 @@ function handle_product_import( $product_data ) {
     $product->set_sku( $sku );
     $product->set_name( $product_data['Title'] );
     $product->set_description( $product_data['Description'] );
-    $product->set_regular_price( $product_data['RetailPrice'] );
+    $product->set_regular_price( $product_data[ regular_price_column() ] ?? '' );
     $product->set_manage_stock( true );
     $product->set_stock_quantity( $product_data['Quantity'] );
     $product->set_stock_status( $product_data['Status'] );
@@ -230,6 +235,7 @@ function handle_product_import( $product_data ) {
 
     // categories
     $category_ids = [];
+    $listed_category_ids = [];
     foreach ( explode( '|', $product_data['Category'] ) as $cat_name ) {
         $cat  = str_replace( '&', '-', $cat_name );
         $term = get_term_by( 'name', $cat, 'product_cat' );
@@ -244,6 +250,7 @@ function handle_product_import( $product_data ) {
             $term_id = $term->term_id;
         }
         $category_ids[] = $term_id;
+        $listed_category_ids[] = $term_id;
         // include parent hierarchy
         $parent_id = $term->parent ?? 0;
         while ( $parent_id ) {
@@ -251,6 +258,24 @@ function handle_product_import( $product_data ) {
             if ( ! $parent ) break;
             $category_ids[] = $parent_id;
             $parent_id      = $parent->parent;
+        }
+    }
+    // SubClass values become sub-categories of the first listed category.
+    $first_category_id = $listed_category_ids[0] ?? 0;
+    if ( ! empty( $product_data['SubClass'] ) && $first_category_id ) {
+        foreach ( explode( '|', $product_data['SubClass'] ) as $subcat_name ) {
+            $subcat   = str_replace( '&', '-', $subcat_name );
+            $existing = get_terms( [ 'taxonomy' => 'product_cat', 'name' => $subcat, 'parent' => $first_category_id, 'hide_empty' => false, 'number' => 1 ] );
+            if ( ! empty( $existing ) && ! is_wp_error( $existing ) ) {
+                $category_ids[] = $existing[0]->term_id;
+                continue;
+            }
+            $res = wp_insert_term( $subcat, 'product_cat', [ 'parent' => $first_category_id ] );
+            if ( is_wp_error( $res ) ) {
+                write_log( "DEBUG: error creating subcategory '{$subcat}' under {$first_category_id}: " . $res->get_error_message(), true );
+                continue;
+            }
+            $category_ids[] = $res['term_id'];
         }
     }
     // remove default if present
@@ -385,50 +410,109 @@ function X_handle_product_attributes( $product_id, $product_data ) {
 
 
 
+/**
+ * The CSV column used as the regular price: the "Regular price column" option,
+ * RetailPrice by default.
+ */
+function regular_price_column(): string {
+    $column = trim( (string) \Hexa\PluginCore\Fields\Field::get( 'regular_price_column', 'option' ) );
+    return '' !== $column ? $column : 'RetailPrice';
+}
+
+/**
+ * Term ID of $term_value in a global product attribute, creating the attribute
+ * and the term when missing. False on failure.
+ */
+function ensure_attribute_and_term( $taxonomy, $attribute_name, $term_value ) {
+    if ( ! taxonomy_exists( $taxonomy ) ) {
+        $result = wc_create_attribute( [
+            'slug'         => str_replace( 'pa_', '', $taxonomy ),
+            'name'         => $attribute_name,
+            'type'         => 'select',
+            'orderby'      => 'menu_order',
+            'has_archives' => false,
+        ] );
+        if ( is_wp_error( $result ) ) {
+            write_log( "ERROR: wc_create_attribute failed for '{$attribute_name}': " . $result->get_error_message(), true );
+            return false;
+        }
+        delete_transient( 'wc_attribute_taxonomies' );
+        register_taxonomy( $taxonomy, [ 'product' ], [ 'hierarchical' => false, 'label' => $attribute_name, 'query_var' => true, 'rewrite' => false, 'public' => true ] );
+        write_log( "DEBUG: created global attribute '{$attribute_name}' ({$taxonomy})", true );
+    }
+    $term = get_term_by( 'name', $term_value, $taxonomy );
+    if ( $term ) {
+        return (int) $term->term_id;
+    }
+    $inserted = wp_insert_term( $term_value, $taxonomy );
+    if ( is_wp_error( $inserted ) ) {
+        write_log( "ERROR: could not create term '{$term_value}' in {$taxonomy}: " . $inserted->get_error_message(), true );
+        return false;
+    }
+    return (int) $inserted['term_id'];
+}
+
+/** @return array<int,int> Term IDs for the pipe-separated values, creating what is missing. */
+function attribute_term_ids( $taxonomy, $attribute_name, $raw ) {
+    $term_ids = [];
+    foreach ( array_filter( array_map( 'trim', explode( '|', (string) $raw ) ), 'strlen' ) as $value ) {
+        $term_id = ensure_attribute_and_term( $taxonomy, $attribute_name, $value );
+        if ( $term_id ) {
+            $term_ids[] = $term_id;
+        }
+    }
+    return $term_ids;
+}
+
 function handle_product_attributes( $product_id, $product_data ) {
     write_log( "DEBUG: handle_product_attributes start for product {$product_id}", true );
 
     $attributes = [];
 
-    // 1) STATIC MAP (unchanged)
+    // 1) STATIC MAP: taxonomy => [ CSV column, attribute label ]
     $static_map = [
-        'pa_stonetypes'        => 'StoneTypes',
-        'pa_stoneweights'      => 'StoneWeights',
-        'pa_watchmodel'        => 'WatchModel',
-        'pa_watchserialnumber' => 'WatchSerialNumber',
-        'pa_watchbandtype'     => 'WatchBandType',
-        'pa_watchdialtype'     => 'WatchDialType',
-        'pa_watchyear'         => 'WatchYear',
-        'pa_watchhasbox'       => 'WatchHasBox',
-        'pa_watchhaspapers'    => 'WatchHasPapers',
-        'pa_watchcondition'    => 'WatchCondition',
-        'pa_watchmovement'     => 'WatchMovement',
-        'pa_size'              => 'Size',
-        'pa_metaltype'         => 'MetalType',
-        'pa_goldcolor'         => 'GoldColor',
+        'pa_stonetypes'        => [ 'StoneTypes', 'Stone Types' ],
+        'pa_stoneweights'      => [ 'StoneWeights', 'Stone Weights' ],
+        'pa_watchmodel'        => [ 'WatchModel', 'Watch Model' ],
+        'pa_watchserialnumber' => [ 'WatchSerialNumber', 'Watch Serial Number' ],
+        'pa_watchbandtype'     => [ 'WatchBandType', 'Watch Band Type' ],
+        'pa_watchdialtype'     => [ 'WatchDialType', 'Watch Dial Type' ],
+        'pa_watchyear'         => [ 'WatchYear', 'Watch Year' ],
+        'pa_watchhasbox'       => [ 'WatchHasBox', 'Watch Has Box' ],
+        'pa_watchhaspapers'    => [ 'WatchHasPapers', 'Watch Has Papers' ],
+        'pa_watchcondition'    => [ 'WatchCondition', 'Watch Condition' ],
+        'pa_watchmovement'     => [ 'WatchMovement', 'Watch Movement' ],
+        'pa_size'              => [ 'Size', 'Size' ],
+        'pa_metaltype'         => [ 'MetalType', 'Metal Type' ],
+        'pa_goldcolor'         => [ 'GoldColor', 'Gold Color' ],
     ];
-    foreach ( $static_map as $tax => $col ) {
-        if ( ! empty( $product_data[ $col ] ) ) {
-            $vals = array_map( 'trim', explode( '|', $product_data[ $col ] ) );
-            wp_set_object_terms( $product_id, $vals, $tax );
-            $attributes[ $tax ] = [
-                'name'         => $tax,
-                'value'        => $product_data[ $col ],
-                'position'     => count( $attributes ) + 1,
-                'is_visible'   => 1,
-                'is_variation' => 0,
-                'is_taxonomy'  => 1,
-            ];
-            write_log( "DEBUG: [static] set attribute {$tax} => " . implode( ',', $vals ), true );
+    foreach ( $static_map as $tax => [ $col, $label ] ) {
+        if ( empty( $product_data[ $col ] ) ) {
+            continue;
         }
+        $term_ids = attribute_term_ids( $tax, $label, $product_data[ $col ] );
+        if ( [] === $term_ids ) {
+            write_log( "WARNING: no terms for attribute '{$tax}', skipping", true );
+            continue;
+        }
+        wp_set_object_terms( $product_id, $term_ids, $tax );
+        $attributes[ $tax ] = [
+            'name'         => $tax,
+            'value'        => $product_data[ $col ],
+            'position'     => count( $attributes ) + 1,
+            'is_visible'   => 1,
+            'is_variation' => 0,
+            'is_taxonomy'  => 1,
+        ];
+        write_log( "DEBUG: [static] set attribute {$tax} => " . implode( ',', $term_ids ), true );
     }
 
-    // 2) DYNAMIC ACF‑BASED FIELDS (only when CSV value is non-empty)
-    $acf_rows = get_field( 'product_custom_fields', 'option' );
+    // 2) DYNAMIC FIELDS (only when CSV value is non-empty)
+    $acf_rows = \Hexa\PluginCore\Fields\Field::get( 'product_custom_fields', 'option' );
     if ( is_array( $acf_rows ) ) {
         foreach ( $acf_rows as $i => $row ) {
-            $display   = trim( $row['display_header'] );
-            $csv_key   = trim( $row['csv_header'] );
+            $display   = trim( (string) ( $row['display_header'] ?? '' ) );
+            $csv_key   = trim( (string) ( $row['csv_header'] ?? '' ) );
             $attr_type = isset( $row['type'] ) && in_array( $row['type'], ['select','text'], true )
                          ? $row['type']
                          : 'select';
@@ -448,49 +532,17 @@ function handle_product_attributes( $product_id, $product_data ) {
                 continue;
             }
 
-            // --- NEW: allow overriding the attribute slug via your ACF 'id' sub‑field ---
+            // The optional 'id' sub field overrides the attribute slug.
             $custom_id = isset( $row['id'] ) ? trim( $row['id'] ) : '';
-            if ( $custom_id ) {
-                $attr_slug = sanitize_title( $custom_id );
-                write_log( "DEBUG: using custom ACF id '{$custom_id}' => slug '{$attr_slug}'", true );
-            } else {
-                $attr_slug = sanitize_title( $display );
-            }
-            $taxonomy = wc_attribute_taxonomy_name( $attr_slug );
+            $attr_slug = sanitize_title( $custom_id ? $custom_id : $display );
+            $taxonomy  = wc_attribute_taxonomy_name( $attr_slug );
 
             if ( 'select' === $attr_type ) {
-                if ( ! taxonomy_exists( $taxonomy ) ) {
-                    $new_id = wc_create_attribute( [
-                        'attribute_name'   => $attr_slug,
-                        'attribute_label'  => $display,
-                        'attribute_type'   => 'select',
-                        'attribute_orderby'=> 'menu_order',
-                        'attribute_public' => 0,
-                    ] );
-                    if ( is_wp_error( $new_id ) ) {
-                        write_log( "ERROR: wc_create_attribute failed for {$display}: " . $new_id->get_error_message(), true );
-                        continue;
-                    }
-                    register_taxonomy( $taxonomy, ['product'], [
-                        'labels'       => ['name' => $display],
-                        'hierarchical' => true,
-                        'show_ui'      => false,
-                        'query_var'    => true,
-                        'rewrite'      => false,
-                    ] );
-                    write_log( "DEBUG: registered taxonomy {$taxonomy}", true );
+                $term_ids = attribute_term_ids( $taxonomy, $display, $raw );
+                if ( [] !== $term_ids ) {
+                    wp_set_object_terms( $product_id, $term_ids, $taxonomy );
                 }
-
-                $terms = array_map( 'trim', explode( '|', $raw ) );
-                foreach ( $terms as $t ) {
-                    if ( ! term_exists( $t, $taxonomy ) ) {
-                        wp_insert_term( $t, $taxonomy );
-                        write_log( "DEBUG: inserted term '{$t}' into {$taxonomy}", true );
-                    }
-                }
-
-                wp_set_object_terms( $product_id, $terms, $taxonomy );
-                write_log( "DEBUG: assigned select terms for {$taxonomy}: " . implode( ',', $terms ), true );
+                write_log( "DEBUG: assigned select terms for {$taxonomy}: " . implode( ',', $term_ids ), true );
 
                 $attributes[ $taxonomy ] = [
                     'name'         => $taxonomy,
@@ -510,6 +562,11 @@ function handle_product_attributes( $product_id, $product_data ) {
                     'is_variation' => 0,
                     'is_taxonomy'  => 0,
                 ];
+            }
+
+            // "Save as Meta": also store the value as `_<display_header>` product meta for templates.
+            if ( ! empty( $row['save_as_meta'] ) ) {
+                update_post_meta( $product_id, '_' . strtolower( str_replace( ' ', '_', $display ) ), $raw );
             }
 
             write_log( "DEBUG: [dynamic] added attribute for '{$display}'", true );

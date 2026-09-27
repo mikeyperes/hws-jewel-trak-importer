@@ -10,7 +10,7 @@ function enable_acf_theme_options() {
 
 
 
-	acf_add_local_field_group( array(
+	\Hexa\PluginCore\Fields\FieldGroups::add( array(
 	'key' => 'group_68633c8e28585',
 	'title' => 'JewelTrak Options',
 	'fields' => array(
@@ -154,7 +154,7 @@ function enable_acf_theme_options() {
 ) );
 
 
-	acf_add_local_field_group( array(
+	\Hexa\PluginCore\Fields\FieldGroups::add( array(
 	'key' => 'group_68758203b9812',
 	'title' => 'Test',
 	'fields' => array(
@@ -294,8 +294,15 @@ function enable_acf_theme_options() {
 					'ui_off_text' => '',
 					'parent_repeater' => 'field_6875a8204085e5',
 				),
-			
-			
+				array(
+					'key' => 'field_save_as_meta',
+					'label' => 'Save as Meta',
+					'name' => 'save_as_meta',
+					'type' => 'true_false',
+					'instructions' => 'Also store the value as product meta `_<display_header>` for templates.',
+					'default_value' => 0,
+					'parent_repeater' => 'field_68758204085e5',
+				),
 			),
 		),
 	),
@@ -321,10 +328,19 @@ function enable_acf_theme_options() {
 
 
 // Inside your enable_acf_theme_options() function, add this:
-acf_add_local_field_group( array(
+\Hexa\PluginCore\Fields\FieldGroups::add( array(
     'key'                   => 'group_general_settings',
     'title'                 => 'General Settings',
     'fields'                => array(
+        array(
+            'key'           => 'field_regular_price_column',
+            'label'         => 'Regular price column',
+            'name'          => 'regular_price_column',
+            'type'          => 'text',
+            'instructions'  => 'CSV column imported as the product regular price. Leave empty for RetailPrice.',
+            'default_value' => '',
+            'placeholder'   => 'RetailPrice',
+        ),
         array(
             'key'               => 'field_purchase_price_column',
             'label'             => 'PurchasePrice Column',
@@ -367,7 +383,7 @@ acf_add_local_field_group( array(
 
 
 
-	acf_add_options_page( array(
+	\Hexa\PluginCore\Fields\OptionsPages::add( array(
 	'page_title' => 'JewelTrak Theme Options',
 	'menu_slug' => 'hws-jewel-trak-importer-theme-options',
 	'redirect' => false,

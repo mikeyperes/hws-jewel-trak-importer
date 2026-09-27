@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 4.1
+Version: 4.2
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -18,6 +18,17 @@ defined('ABSPATH') or die('No script kiddies please!');
 
 // Generic functions import 
 include_once("generic-functions.php");
+
+// Hexa WP Core: custom fields run on ACF when it is active and natively when it is not.
+$hexa_plugin_core_root = __DIR__ . '/lib/hexa-wordpress-plugin-core';
+require_once $hexa_plugin_core_root . '/bootstrap.php';
+\hexa_plugin_core_register_package(
+    'hws-jewel-trak-importer',
+    $hexa_plugin_core_root,
+    [
+        'minimum_version' => trim( (string) file_get_contents( $hexa_plugin_core_root . '/VERSION' ) ),
+    ]
+);
  
 // Define constants
 class Config {
@@ -85,6 +96,8 @@ include_once("GitHub_Updater.php");
 //hws_import_tool('GitHub_Updater.php', 'WP_GitHub_Updater');
 // Automatically imports the class into your current namespace
 hws_alias_namespace_functions('hws_base_tools', __NAMESPACE__);
+// Local helpers for whatever Base Tools did not supply.
+include_once( __DIR__ . '/fallback-functions.php' );
 
 
 
@@ -108,37 +121,12 @@ add_action( 'admin_init', function() {
 
 
 
-// Array of plugins to check
-$plugins_to_check = [
-    'advanced-custom-fields-pro/acf.php',
-    'advanced-custom-fields-pro-temp/acf.php'
-];
-
-// Initialize flags for active status
-$acf_active = false;
-
-// Check if any of the plugins is active
-foreach ($plugins_to_check as $plugin) {
-    list($installed, $active) = check_plugin_status($plugin);
-    if ($active) {
-        $acf_active = true;
-        break; // Stop checking once we find an active one
-    }
-}
-
-// If none of the ACF plugins are active, display a warning and prevent the plugin from running
-if (!$acf_active) {
-    add_action('admin_notices', function() {
-        echo '<div class="notice notice-error"><p><strong>'.Config::$plugin_name.'</strong> The Advanced Custom Fields (ACF) or Advanced Custom Fields Pro (ACF Pro) plugin is required and must be active to use this plugin. Please activate ACF or ACF Pro.</p></div>';
-    });
-    return; // Stop further execution of the plugin
-}
 
 
 //include_once("activate-snippets.php");
 
 
-add_action('acf/init', function() {
+\hexa_fields_on('init', function() {
     include_once("acf-register-theme-options.php");
     activate_snippets("acf");
     
