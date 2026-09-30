@@ -4,12 +4,13 @@
 add_action('admin_head', __NAMESPACE__ . '\\activate_listeners');
 add_action('wp_ajax_'.__NAMESPACE__.'_modify_wp_config_constants',  __NAMESPACE__ . '\\modify_wp_config_constants_handler');    
 add_action('wp_ajax_'.__NAMESPACE__.'_execute_function',  __NAMESPACE__ . '\\handle_execute_function_ajax');
-add_action('wp_ajax_nopriv_'.__NAMESPACE__.'_execute_function',  __NAMESPACE__ . '\\handle_execute_function_ajax');  // For non-logged in users (optional)
 add_action('wp_ajax_'.__NAMESPACE__.'_toggle_snippet',   __NAMESPACE__ . '\\toggle_snippet');
 
 
 function activate_listeners()
-{?>
+{
+    $ajax_nonce = create_ajax_nonce();
+    ?>
 <script>
 jQuery(document).ready(function($) {
     $('#<?php echo Config::$settings_page_html_id;?> .modify-wp-config').on('click', function(e) {
@@ -21,6 +22,7 @@ jQuery(document).ready(function($) {
 
         $.post(ajaxurl, {
             action: '<?php echo __NAMESPACE__; ?>_modify_wp_config_constants',
+            nonce: '<?php echo esc_js( $ajax_nonce ); ?>',
             constants: {
                 [constant]: value
             }
@@ -46,6 +48,7 @@ jQuery(document).ready(function($) {
 
                 $.post(ajaxurl, {
                     action: '<?php echo __NAMESPACE__; ?>_enable_plugin_auto_updates',
+                    nonce: '<?php echo esc_js( $ajax_nonce ); ?>',
 
                 }, function(response) {
                     if (response.success) {
@@ -69,6 +72,7 @@ jQuery(document).ready(function($) {
 
                 $.post(ajaxurl, {
                     action: '<?php echo __NAMESPACE__; ?>_modify_wp_config_constants',
+                    nonce: '<?php echo esc_js( $ajax_nonce ); ?>',
 
                     constants: {
                         'WP_AUTO_UPDATE_CORE': 'true'
@@ -95,6 +99,7 @@ jQuery(document).ready(function($) {
                 $.post(ajaxurl, {
 
                     action: '<?php echo __NAMESPACE__; ?>_modify_wp_config_constants',
+                    nonce: '<?php echo esc_js( $ajax_nonce ); ?>',
                       constants: {
                         'WP_MEMORY_LIMIT': '4000M' // Adding the constant to update
                     }
@@ -146,6 +151,7 @@ $(document).ready(function($) {
             // Make the AJAX call to execute the function
             var dataToSend = {
                 action: '<?php echo __NAMESPACE__; ?>_execute_function',  // The action to hook into on the server-side
+                nonce: '<?php echo esc_js( $ajax_nonce ); ?>',
                 method: methodName,          // Pass the method name
                 setting: setting,            // Pass the setting name
                 state: state,                // Pass the state
@@ -219,6 +225,7 @@ $(document).ready(function($) {
       type: 'POST',
       data: {
         action: ns + '_toggle_snippet',
+        nonce: '<?php echo esc_js( $ajax_nonce ); ?>',
         snippet_id: snippetId,
         enable: isChecked
       },
@@ -271,6 +278,7 @@ $(document).ready(function($) {
 
 if ( ! function_exists( __NAMESPACE__ . '\\toggle_snippet' ) ) {
     function toggle_snippet() {
+        require_admin_ajax();
        // $settings_snippets = get_settings_snippets();
        $settings_snippets = [];
 
@@ -391,9 +399,7 @@ $all_snippets = array_merge($snippets_acf, $snippets_admin, $snippets_non_admin)
 
 
 function modify_wp_config_constants_handler() {
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error(['message' => 'Unauthorized']);
-    }
+    require_admin_ajax();
 
     $constants = isset($_POST['constants']) ? $_POST['constants'] : [];
     if (empty($constants)) {
@@ -411,29 +417,42 @@ function modify_wp_config_constants_handler() {
 
 
 function handle_execute_function_ajax() {
+    require_admin_ajax();
+
     // Verify if the method parameter is passed and is not empty
     if (isset($_POST['method']) && !empty($_POST['method'])) {
-        $method_name = sanitize_text_field($_POST['method']);
+        $method_name = sanitize_text_field( wp_unslash( $_POST['method'] ) );
 
-        $variable = "";
-        if(isset($_POST['variable']))
-        $variable = $_POST['variable'];
+        $allowed_methods = [
+            'delete_all_comments',
+            'delete_pending_comments',
+            'delete_spam_comments',
+            'disable_comments_future',
+            'disable_comments_prior',
+            'disable_user_registration',
+            'enable_comments_future',
+            'enable_comments_prior',
+            'enable_user_registration',
+        ];
+
+        if ( ! in_array( $method_name, $allowed_methods, true ) ) {
+            wp_send_json_error(
+                [
+                    'message' => 'Unsupported operation.',
+                    'code'    => 'unsupported_operation',
+                ],
+                400
+            );
+        }
         // Determine the correct namespace
         $namespace =  __NAMESPACE__ ."";
         $fully_qualified_function_name = $namespace . '\\' . $method_name;
         write_log("handle_execute_function_ajax - Method name passed: " . $fully_qualified_function_name, true);
         // Get the state if passed
-        $state = isset($_POST['state']) ? sanitize_text_field($_POST['state']) : null;
+        $state = isset($_POST['state']) ? sanitize_text_field( wp_unslash( $_POST['state'] ) ) : null;
 
         // Check if the function exists with the namespace
         if (function_exists($fully_qualified_function_name)) {
-            // Execute the function with both the setting and state
-
-            if($method_name == "toggle_php_ini_value")
-            $response = call_user_func($fully_qualified_function_name,$variable, $state);
-            else  if($method_name == "create_category_for_post_type")
-          $response = call_user_func($fully_qualified_function_name,$_POST['name'],$_POST['slug'],$_POST['post_type'] );
-else
             $response = call_user_func($fully_qualified_function_name, $state);
         
           

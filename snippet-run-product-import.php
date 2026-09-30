@@ -9,9 +9,8 @@ function enable_product_importer() {
     // Hard‐coded switch: when true, use FIFU PRO to assign remote images instead of sideloading
     define( 'IMPORT_PHOTOS_WITH_FIFU', true );
 
-    // 1) Public AJAX endpoints (no login required):
+    // 1) Authenticated AJAX endpoint:
     add_action( 'wp_ajax_import_products_csv',       __NAMESPACE__ . '\\import_products_from_csv' );
-    add_action( 'wp_ajax_nopriv_import_products_csv', __NAMESPACE__ . '\\import_products_from_csv' );
 }
 add_action( 'plugins_loaded', __NAMESPACE__ . '\\enable_product_importer' );
 
@@ -19,6 +18,8 @@ add_action( 'plugins_loaded', __NAMESPACE__ . '\\enable_product_importer' );
  * The main import function
  */
 function import_products_from_csv() {
+    require_admin_ajax();
+
     write_log( "DEBUG: import_products_from_csv start", true );
 
     $current_timeout = ini_get( 'max_execution_time' );
