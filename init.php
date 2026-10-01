@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 4.2.1
+Version: 4.2.2
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -243,7 +243,7 @@ function get_snippets($type = "")
             'name'             => 'enable_product_importer',
             'description'      => sprintf(
                 '<a href="%1$s" target="_blank">%1$s</a>',
-                protected_admin_ajax_url( 'import_products_csv' )
+                admin_url( 'admin-ajax.php?action=import_products_csv' )
             ),
             'info'             => '',
             'function'         => 'enable_product_importer',
@@ -255,7 +255,7 @@ function get_snippets($type = "")
             'name'             => 'enable_product_importer_process_deletes',
             'description'      => sprintf(
                 '<a href="%1$s" target="_blank">%1$s</a>',
-                protected_admin_ajax_url( 'delete_products_csv' )
+                admin_url( 'admin-ajax.php?action=delete_products_csv' )
             ),
             'info'             => '',
             'function'         => 'enable_product_importer_process_deletes',

@@ -1,14 +1,13 @@
 <?php namespace hws_jewel_trak_importer;
 
 function enable_product_importer_process_deletes(){
-    // 1) Register the authenticated AJAX endpoint.
-    add_action( 'wp_ajax_delete_products_csv',       __NAMESPACE__ . '\\delete_products_ajax' );
+    // 1) Public AJAX endpoint: JewelTrak calls it logged out after its FTP upload.
+    add_action( 'wp_ajax_delete_products_csv',        __NAMESPACE__ . '\\delete_products_ajax' );
+    add_action( 'wp_ajax_nopriv_delete_products_csv', __NAMESPACE__ . '\\delete_products_ajax' );
 }
 
 // 2) AJAX handler
 function delete_products_ajax() {
-    require_admin_ajax();
-
     // force JSON output
     header( 'Content-Type: application/json; charset=utf-8' );
 

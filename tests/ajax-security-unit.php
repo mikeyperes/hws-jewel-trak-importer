@@ -62,6 +62,10 @@ namespace {
     function add_query_arg( array $args, string $url ): string {
         return $url . '?' . http_build_query( $args );
     }
+
+    function wp_json_encode( mixed $value, int $flags = 0 ): string|false {
+        return json_encode( $value, $flags );
+    }
 }
 
 namespace hws_jewel_trak_importer {
@@ -90,16 +94,17 @@ namespace {
 
     $hooks = $GLOBALS['ajax_test']['hooks'];
     in_array( 'wp_ajax_hws_jewel_trak_importer_execute_function', $hooks, true ) || $fail( 'The authenticated generic action was not registered.' );
-    in_array( 'wp_ajax_import_products_csv', $hooks, true ) || $fail( 'The authenticated import action was not registered.' );
-    in_array( 'wp_ajax_delete_products_csv', $hooks, true ) || $fail( 'The authenticated delete action was not registered.' );
-
+    // JewelTrak triggers import and delete logged out after each FTP upload.
     foreach ( [
-        'wp_ajax_nopriv_hws_jewel_trak_importer_execute_function',
+        'wp_ajax_import_products_csv',
         'wp_ajax_nopriv_import_products_csv',
+        'wp_ajax_delete_products_csv',
         'wp_ajax_nopriv_delete_products_csv',
-    ] as $forbidden_hook ) {
-        ! in_array( $forbidden_hook, $hooks, true ) || $fail( 'An anonymous mutating action remains registered: ' . $forbidden_hook );
+    ] as $callback_hook ) {
+        in_array( $callback_hook, $hooks, true ) || $fail( 'A JewelTrak callback action was not registered: ' . $callback_hook );
     }
+
+    ! in_array( 'wp_ajax_nopriv_hws_jewel_trak_importer_execute_function', $hooks, true ) || $fail( 'The generic dispatcher is registered for anonymous calls.' );
 
     $invoke_dispatch = static function ( bool $allowed, bool $nonce, string $method ) use ( $fail ): AjaxTestResponse {
         $GLOBALS['ajax_test']['allowed'] = $allowed;
@@ -131,20 +136,24 @@ namespace {
     $response = $invoke_dispatch( true, true, 'enable_user_registration' );
     ( $response->success && 1 === $GLOBALS['ajax_test']['calls'] ) || $fail( 'An authorized allowlisted operation did not run.' );
 
+    // A logged-out caller with no nonce reaches the CSV step instead of a 403.
     foreach ( [
         'hws_jewel_trak_importer\\import_products_from_csv',
         'hws_jewel_trak_importer\\delete_products_ajax',
     ] as $handler ) {
         $GLOBALS['ajax_test']['allowed'] = false;
-        $GLOBALS['ajax_test']['nonce']   = true;
+        $GLOBALS['ajax_test']['nonce']   = false;
 
+        ob_start();
         try {
             $handler();
-            $fail( 'A protected import/delete handler returned without rejecting the request.' );
+            ob_end_clean();
+            $fail( 'A JewelTrak callback handler returned without terminating.' );
         } catch ( AjaxTestResponse $response ) {
-            ( ! $response->success && 403 === $response->status ) || $fail( 'A protected import/delete handler did not reject unauthorized access.' );
+            $body = (string) ob_get_clean();
+            ( 403 !== $response->status && '' !== $body ) || $fail( 'A JewelTrak callback handler rejected a logged-out call: ' . $handler );
         }
     }
 
-    echo "PASS: JewelTrak mutating AJAX actions require manage_options, a nonce, and an allowlisted operation.\n";
+    echo "PASS: JewelTrak import/delete callbacks accept logged-out calls; the generic dispatcher still requires manage_options, a nonce, and an allowlisted operation.\n";
 }
