@@ -2,11 +2,7 @@
 
 
     function display_settings_snippets() {
-        add_action('admin_init', 'acf_form_init');
-    
-        function acf_form_init() {
-            \Hexa\PluginCore\Fields\Form::head();
-        }
+        // Core boots its own options forms before the dashboard renders.
         ?>
     
 

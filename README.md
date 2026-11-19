@@ -3,7 +3,7 @@ Hexa Web Systems' Wordpress plugin to pull content from JewelTrak's inventory sy
 
 ## Features
 
-- Hexa WP Core 3.64.0 registers and edits the existing JewelTrak importer settings. Existing field keys and import settings stay in use.
+- Hexa WP Core 3.64.0 registers and edits the existing JewelTrak importer settings, including the Theme Options form. Existing field keys and import settings stay in use.
 
 ## 4.2.2: public JewelTrak callbacks
 
