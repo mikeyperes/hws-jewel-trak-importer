@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 4.2.2
+Version: 4.2.3
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -21,7 +21,7 @@ require_once __DIR__ . '/ajax-security.php';
 // Generic functions import 
 include_once("generic-functions.php");
 
-// Hexa WP Core: custom fields run on ACF when it is active and natively when it is not.
+// Hexa WP Core owns importer settings fields.
 $hexa_plugin_core_root = __DIR__ . '/lib/hexa-wordpress-plugin-core';
 require_once $hexa_plugin_core_root . '/bootstrap.php';
 \hexa_plugin_core_register_package(
@@ -105,7 +105,7 @@ include_once( __DIR__ . '/fallback-functions.php' );
 
 
 
- // Hook to acf/init to ensure ACF is initialized before running any ACF-related code
+ // Register the importer settings on Core field initialization.
 
 
 
@@ -129,7 +129,7 @@ add_action( 'admin_init', function() {
 
 
 \hexa_fields_on('init', function() {
-    include_once("acf-register-theme-options.php");
+    include_once("register-theme-fields.php");
     activate_snippets("acf");
     
   //  if (is_admin()) {

@@ -28,7 +28,7 @@ $map = [
     'get_field' => $field . 'get', 'the_field' => $field . 'the', 'update_field' => $field . 'update',
     'delete_field' => $field . 'delete', 'get_fields' => $field . 'all', 'get_field_object' => $field . 'object',
     'get_field_objects' => $field . 'objects', 'have_rows' => $field . 'have_rows', 'the_row' => $field . 'the_row',
-    'get_sub_field' => $field . 'get_sub_field', 'the_sub_field' => $field . 'the_sub_field',
+    'get_row' => $field . 'get_row', 'get_sub_field' => $field . 'get_sub_field', 'the_sub_field' => $field . 'the_sub_field',
     'get_row_index' => $field . 'get_row_index', 'get_row_layout' => $field . 'get_row_layout', 'reset_rows' => $field . 'reset_rows',
     'acf_add_local_field_group' => $groups . 'add', 'acf_remove_local_field_group' => $groups . 'remove',
     'acf_get_field_group' => $groups . 'get_group', 'acf_get_local_field_group' => $groups . 'get_group',
@@ -164,8 +164,9 @@ function migrate( string $source, array $map, array $guards ): array {
             $arg = next_index( $tokens, $next );
             if ( null !== $arg && is_array( $tokens[ $arg ] ) && T_CONSTANT_ENCAPSED_STRING === $tokens[ $arg ][0] && preg_match( '/^([\'"])acf\//', $tokens[ $arg ][1] ) ) {
                 $method = str_starts_with( $name, 'remove' ) ? 'off' : 'on';
-                // While plugins load, Core's classes are not autoloadable yet: bootstrap.php's hexa_fields_on() defers.
-                $load_safe = 'on' === $method && ! $in_function;
+                // A registration can run while plugins load (even inside a function), before Core's
+                // classes are autoloadable; bootstrap.php's hexa_fields_on() works at any time.
+                $load_safe = 'on' === $method;
                 $out .= $load_safe ? '\\hexa_fields_on' : '\\Hexa\\PluginCore\\Fields\\Hooks::' . $method;
                 for ( $j = $i + 1; $j < $arg; $j++ ) {
                     $out .= is_array( $tokens[ $j ] ) ? $tokens[ $j ][1] : $tokens[ $j ];
