@@ -1,6 +1,7 @@
 <?php namespace hws_jewel_trak_importer;
 
-function enable_acf_theme_options() {
+/** Registers the JewelTrak options fields and editing screen with Core. */
+function enable_theme_fields() {
 
 
 
@@ -327,7 +328,7 @@ function enable_acf_theme_options() {
 ) );
 
 
-// Inside your enable_acf_theme_options() function, add this:
+// Map the original JewelTrak admin page to its Core field group.
 \Hexa\PluginCore\Fields\FieldGroups::add( array(
     'key'                   => 'group_general_settings',
     'title'                 => 'General Settings',
@@ -391,3 +392,7 @@ function enable_acf_theme_options() {
 
     }
 
+/** Preserves the original snippet callback for saved configurations and callers. */
+function enable_acf_theme_options() {
+    enable_theme_fields();
+}

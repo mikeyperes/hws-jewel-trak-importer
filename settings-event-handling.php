@@ -282,13 +282,13 @@ if ( ! function_exists( __NAMESPACE__ . '\\toggle_snippet' ) ) {
        // $settings_snippets = get_settings_snippets();
        $settings_snippets = [];
 
-       $snippets_acf = get_snippets("acf");
+       $field_snippets = get_snippets( "fields" );
        $snippets_admin = get_snippets("admin");
        $snippets_non_admin = get_snippets("non_admin");
 
 
 // Merge all three arrays into one
-$all_snippets = array_merge($snippets_acf, $snippets_admin, $snippets_non_admin);
+$all_snippets = array_merge($field_snippets, $snippets_admin, $snippets_non_admin);
 
 
         // Retrieve the snippet ID and the enable/disable state from the AJAX request

@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 4.2.4
+Version: 4.2.5
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -128,23 +128,12 @@ add_action( 'admin_init', function() {
 //include_once("activate-snippets.php");
 
 
-\hexa_fields_on('init', function() {
-    include_once("register-theme-fields.php");
-    activate_snippets("acf");
-    
-  //  if (is_admin()) {
-  /*
-    include_once("register-acf-structure-theme-options.php");
-    include_once("register-acf-structures.php");
-    include_once("register-acf-user-profile.php");
-    include_once("register-acf-verified-profile.php");
-
-
- 
-    //register_verified_profile_custom_fields();
-    */
- //   } 
-     
+// Bug: an obsolete bootstrap block referred to field files the importer no longer ships.
+// Fix: load the active Core field definitions from their current file.
+// Why this way: the existing snippet setting still controls the same field group.
+\hexa_fields_on( 'init', function() {
+    require_once __DIR__ . '/register-theme-fields.php';
+    activate_snippets( 'fields' );
 }, 11 );
 
 add_action('init', function() { 
@@ -183,32 +172,15 @@ add_action('init', function() {
 function get_snippets($type = "")
 {
 
-    $snippets_acf = [
+    $field_snippets = [
         [
-            'id'                => 'enable_acf_theme_options',
-            'name'              => 'enable_acf_theme_options',
-            'description'       => 'this enables abc',
-            'info'              => display_acf_structure(["group_68633c8e28585"]),
-
-            'function'          => 'enable_acf_theme_options',
-            'scope_admin_only'  => false
-
-        ],/*s
-        [
-            'id'          => 'register_profile_general_acf_fields',
-            'name'        => 'register_profile_acf_fields',
-            'description' => display_acf_structure(
-                [
-                    'group_66b7bdf713e77',  // Post - Verified Profile - Admin
-                    'group_656ea6b4d7088',  // Profile - Admin
-                    'group_656eb036374de',  // Profile - Person - Public
-                    'group_65a8b25062d91',  // User - Profile Manager
-                    'group_658602c9eaa49',  // User - Verified Profile Manager - Admin
-                ]
-            ),
-            'info'     => '',
-            'function' => 'register_profile_general_acf_fields'
-        ],*/
+            'id'               => 'enable_acf_theme_options',
+            'name'             => 'JewelTrak Theme Options Fields',
+            'description'      => 'Registers the importer settings fields and Theme Options screen.',
+            'info'             => display_acf_structure( [ 'group_68633c8e28585' ] ),
+            'function'         => 'enable_theme_fields',
+            'scope_admin_only' => false,
+        ],
     ];
 
     $snippet_non_admin = [
@@ -290,7 +262,7 @@ function get_snippets($type = "")
         return $snippets_admin;
     }
 
-    return $snippets_acf;
+    return $field_snippets;
 }
 
 

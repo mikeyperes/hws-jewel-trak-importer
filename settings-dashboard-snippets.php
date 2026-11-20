@@ -75,14 +75,10 @@
                     $active_snippets = [];
                   // $settings_snippets = get_settings_snippets();
                   //$settings_snippets=[];
-                  $snippets_acf = get_snippets("acf");
-                  $snippets_admin = get_snippets("admin");
-                  $snippets_non_admin = get_snippets("non_admin");
-                  $settings_snippets = array_merge(
-                      get_snippets("acf"),
-                      get_snippets("admin"),
-                      get_snippets("non_admin")
-                    );
+                    $field_snippets = get_snippets( 'fields' );
+                    $snippets_admin = get_snippets( 'admin' );
+                    $snippets_non_admin = get_snippets( 'non_admin' );
+                    $settings_snippets = array_merge( $field_snippets, $snippets_admin, $snippets_non_admin );
 
 
                     // Iterate through the snippets and check which ones are active
@@ -114,7 +110,7 @@
 
 
 // Merge all three arrays into one
-$all_snippets = array_merge($snippets_acf, $snippets_admin, $snippets_non_admin);
+$all_snippets = $settings_snippets;
 
 // Loop through every snippet and render its checkbox
 foreach ($all_snippets as $snippet) {

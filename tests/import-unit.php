@@ -16,7 +16,9 @@ class WC_Product_Simple {
 }
 function add_action( ...$a ) { return true; }
 function add_filter( ...$a ) { return true; }
-function get_field( $selector, $context = false, $format = true ) { return $GLOBALS['t']['options'][ $selector ] ?? null; }
+// Bug: the fixture supplied settings only through ACF's API.
+// Fix: use the stored option keys. Why this way: the importer reads them through Core.
+function get_field( $selector, $context = false, $format = true ) { throw new \LogicException( 'The importer must not call ACF.' ); }
 function get_option( $name, $default = false ) { return $GLOBALS['t']['options'][ $name ] ?? $default; }
 function current_time( $type ) { return '2026-09-27 00:00:00'; }
 function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
@@ -50,7 +52,7 @@ handle_product_import( $row );
 [] === $GLOBALS['t']['deleted'] || $fail( 'A partial SKU match (RING-10 for RING-1) must not be treated as a duplicate.' );
 '900' === ( $GLOBALS['t']['products'][10]->data['regular_price'] ?? null ) || $fail( 'By default the regular price comes from RetailPrice and the exact match is updated.' );
 
-$GLOBALS['t']['options']['regular_price_column'] = 'WholesalePrice';
+$GLOBALS['t']['options']['options_regular_price_column'] = 'WholesalePrice';
 handle_product_import( $row );
 '450' === $GLOBALS['t']['products'][10]->data['regular_price'] || $fail( 'The Regular price column setting selects WholesalePrice.' );
 
@@ -61,7 +63,7 @@ $subs = array_values( array_filter( array_keys( $GLOBALS['t']['terms'] ), static
 handle_product_import( $row );
 2 === count( array_filter( $GLOBALS['t']['terms'], static fn( array $t ): bool => $t['parent'] === $rings ) ) || $fail( 'Existing sub-categories are reused, not duplicated.' );
 
-$GLOBALS['t']['options']['product_custom_fields'] = [ [ 'display_header' => 'Carat Weight', 'csv_header' => 'Carat Weight', 'type' => 'text', 'visible' => 1, 'save_as_meta' => 1 ] ];
+$GLOBALS['t']['options']['options_product_custom_fields'] = [ [ 'display_header' => 'Carat Weight', 'csv_header' => 'Carat Weight', 'type' => 'text', 'visible' => 1, 'save_as_meta' => 1 ] ];
 handle_product_attributes( 10, $row );
 $created = $GLOBALS['t']['attributes_created'][0] ?? [];
 'metaltype' === ( $created['slug'] ?? '' ) && 'Metal Type' === ( $created['name'] ?? '' ) || $fail( 'A missing global attribute is created with wc_create_attribute( slug, name ).' );
