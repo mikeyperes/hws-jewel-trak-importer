@@ -3,6 +3,8 @@ Hexa Web Systems' Wordpress plugin to pull content from JewelTrak's inventory sy
 
 ## Features
 
+- Uses Hexa WP Core 3.66.0 for the existing snippet activation and debug logging, while retaining the plugin’s option keys and settings controls.
+
 - Updates target the JewelTrak plugin folder. The FTP status panel uses the site’s encrypted Hexa WP Core credentials.
 
 - The settings dashboard names the importer field snippet JewelTrak Theme Options Fields. The original snippet ID and callback remain compatible with saved configurations.

@@ -11,16 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 if ( ! function_exists( __NAMESPACE__ . '\\write_log' ) ) {
     function write_log( $log, $full_debug = false, $display_stack = false ) {
-        if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG || ! defined( 'WP_DEBUG_LOG' ) || ! WP_DEBUG_LOG || ! $full_debug ) {
-            return;
-        }
-        $message = is_array( $log ) || is_object( $log ) ? print_r( $log, true ) : (string) $log; // phpcs:ignore WordPress.PHP.DevelopmentFunctions
-        if ( $display_stack ) {
-            foreach ( array_slice( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ), 1 ) as $index => $frame ) { // phpcs:ignore WordPress.PHP.DevelopmentFunctions
-                $message .= sprintf( "\nStack #%d → %s%s() in %s on line %s", $index + 1, isset( $frame['class'] ) ? $frame['class'] . $frame['type'] : '', $frame['function'] ?? 'N/A', $frame['file'] ?? 'N/A', $frame['line'] ?? 'N/A' );
-            }
-        }
-        error_log( $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
+        \Hexa\PluginCore\LogFiles\DebugLogger::write( $log, (bool) $full_debug, (bool) $display_stack );
     }
 }
 

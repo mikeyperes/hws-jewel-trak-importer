@@ -39,6 +39,7 @@ function sanitize_title( $value ) { return strtolower( trim( preg_replace( '/[^a
 function update_post_meta( $id, $key, $value ) { $GLOBALS['t']['meta'][ $key ] = $value; return true; }
 
 require dirname( __DIR__ ) . '/lib/hexa-wordpress-plugin-core/tests/support/fields.php';
+require dirname( __DIR__ ) . '/lib/hexa-wordpress-plugin-core/src/LogFiles/DebugLogger.php';
 require dirname( __DIR__ ) . '/fallback-functions.php';
 require dirname( __DIR__ ) . '/snippet-run-product-import.php';
 
