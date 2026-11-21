@@ -11,7 +11,7 @@ function create_ajax_nonce(): string {
 }
 
 function require_admin_ajax(): void {
-    if ( ! current_user_can( 'manage_options' ) ) {
+    if ( ! \Hexa\PluginCore\WpAdminAjax\AjaxGuard::allows( 'manage_options' ) ) {
         wp_send_json_error(
             [
                 'message' => 'Unauthorized.',
@@ -21,7 +21,7 @@ function require_admin_ajax(): void {
         );
     }
 
-    if ( ! check_ajax_referer( AJAX_NONCE_ACTION, 'nonce', false ) ) {
+    if ( ! \Hexa\PluginCore\WpAdminAjax\AjaxGuard::check_request_nonce( AJAX_NONCE_ACTION, 'nonce', false ) ) {
         wp_send_json_error(
             [
                 'message' => 'Security check failed. Please refresh the page and try again.',

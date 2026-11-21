@@ -3,6 +3,8 @@ Hexa Web Systems' Wordpress plugin to pull content from JewelTrak's inventory sy
 
 ## Features
 
+- Admin AJAX uses Hexa WP Core 3.66.1 for nonce and capability checks. Existing action names, role requirements, nonce fields, and responses stay the same.
+
 - Uses Hexa WP Core 3.66.0 for the existing snippet activation and debug logging, while retaining the plugin’s option keys and settings controls.
 
 - Updates target the JewelTrak plugin folder. The FTP status panel uses the site’s encrypted Hexa WP Core credentials.

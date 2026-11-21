@@ -79,6 +79,7 @@ namespace hws_jewel_trak_importer {
 
 namespace {
     $root = dirname( __DIR__ );
+    require $root . '/lib/hexa-wordpress-plugin-core/src/WpAdminAjax/AjaxGuard.php';
     require $root . '/ajax-security.php';
     require $root . '/settings-event-handling.php';
     require $root . '/snippet-run-product-import.php';
