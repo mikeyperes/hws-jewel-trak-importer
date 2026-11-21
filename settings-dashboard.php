@@ -147,19 +147,26 @@ pre {
 
 <?php 
 
-$host     = '51.81.93.236';
-$user     = 'jeweltrak@jewelryworld.com'; 
-$pass     = 'a!@EASD!@swslfEED03!-';
+// Bug: the FTP login was stored in the plugin source.
+// Fix: read the site's encrypted binding from Hexa WP Core.
+// Why this way: each installation keeps its own connection without shipping its credentials.
+$credentials = new \Hexa\PluginCore\CredentialVault\CredentialStore();
+$host = $credentials->get( Config::SLUG, 'ftp_host' );
+$user = $credentials->get( Config::SLUG, 'ftp_username' );
+$pass = $credentials->get( Config::SLUG, 'ftp_password' );
+$ftp_configured = is_string( $host ) && '' !== $host
+    && is_string( $user ) && '' !== $user
+    && is_string( $pass ) && '' !== $pass;
 
 // 1. Validate credentials
-if ( validate_ftp_credentials( $host, $user, $pass ) ) {
+if ( $ftp_configured && validate_ftp_credentials( $host, $user, $pass ) ) {
     echo 'FTP credentials are valid.';
 } else {
     echo 'Invalid FTP credentials.';
 }
 
 // 2. Get remote path
-$path = get_ftp_remote_path( $host, $user, $pass );
+$path = $ftp_configured ? get_ftp_remote_path( $host, $user, $pass ) : false;
 if ( $path !== false ) {
     echo 'Current FTP path: ' . esc_html( $path );
 } else {

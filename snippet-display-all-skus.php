@@ -38,6 +38,5 @@ function ajax_display_skus() {
 }
 
 /*
-To fetch via GET, use:
-https://jewelryworld.com/wp-admin/admin-ajax.php?action=display_skus
+The GET endpoint is this site's admin_url( 'admin-ajax.php?action=display_skus' ).
 */

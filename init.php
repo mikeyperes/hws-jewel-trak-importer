@@ -4,7 +4,7 @@ Plugin Name: HWS JewelTrak Import Tool (Hexa Web Systems)
 Description: Jewelry import tool
 Author: Hexa Web Systems
 Plugin URI: https://github.com/mikeyperes/hws-jewel-trak-importer
-Version: 4.2.5
+Version: 4.2.6
 Text Domain: hws-jewel-trak-importer
 Domain Path: /languages
 Author URI: https://hexawebsystems.com
@@ -34,13 +34,16 @@ require_once $hexa_plugin_core_root . '/bootstrap.php';
  
 // Define constants
 class Config {
+    public const VERSION = '4.2.6';
+    public const SLUG = 'hws-jewel-trak-importer';
+    private const REPOSITORY = 'mikeyperes/hws-jewel-trak-importer';
     public static $plugin_name = "HWS JewelTrak Import Tool (Hexa Web Systems)";
     public static $plugin_starter_file = "init.php";
 
     public static $settings_page_html_id = "hws_jewel_trak_importer";
     public static $settings_page_name = "Hexa Web Systems Importer - Settings";
     public static $settings_page_capability = "manage_options";
-    public static $settings_page_slug = "hws-jewel-trak-importer";
+    public static $settings_page_slug = self::SLUG;
     public static $settings_page_display_title = "Hexa Web Systems Jewelry Importer - Settings";
     public static $plugin_short_id = "hws_jt_importer";
     
@@ -48,13 +51,19 @@ class Config {
 
  
 
+/** Resolve the updater identity once from the actual plugin file. */
 public static function get_github_config() {
+    // Bug: the updater targeted the HWS Base Tools folder instead of JewelTrak.
+    // Fix: derive the update identity from the real file and canonical slug using Core.
+    // Why this way: the Update Center and WordPress update hooks share one identity.
+    $updater = \Hexa\PluginCore\PluginUpdates\UpdaterConfig::from_plugin_file(
+        __FILE__,
+        self::REPOSITORY,
+        [ 'plugin_slug' => self::SLUG ]
+    );
     return [
-        // 1) The plugin’s WP-slug (must point to your initialization.php)
-        'slug'               => 'hws-jewel-trak-importer/init.php',
-
-        // 2) Your folder name on disk
-        'proper_folder_name' => 'hws-base-tools',
+        'slug'               => $updater->plugin_basename(),
+        'proper_folder_name' => $updater->proper_folder_name(),
 
         // 3) GitHub API endpoints & download URLs
         'api_url' => 'https://api.github.com/repos/mikeyperes/hws-jewel-trak-importer', // GitHub API URL
@@ -71,12 +80,12 @@ public static function get_github_config() {
         'readme'             => 'README.md',
 
         // 6) Which file to pull “Version:” from
-        'plugin_starter_file'=> 'init.php',
+        'plugin_starter_file'=> $updater->get( 'plugin_starter_file' ),
 
         // 7) Explicit plugin metadata (so we never scan PHP headers)
         'plugin_name'        => 'HWS - Jewel Trak Importer',
         'author'             => 'Michael Peres',
-        'homepage'           => 'https://github.com/mikeyperes/hws-base-tools',
+        'homepage'           => $updater->get( 'homepage' ),
         'description'        => 'Jewel Trak Importer.',
     ];
 }

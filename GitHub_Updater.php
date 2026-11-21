@@ -381,12 +381,22 @@ class WP_GitHub_Updater {
 	 * @return array $result the result of the move
 	 */
 	public function upgrader_post_install( $true, $hook_extra, $result ) {
+		// Bug: WordPress also calls this filter for updates to other plugins.
+		// Fix: handle only the exact WordPress plugin file registered by JewelTrak.
+		// Why this way: unrelated packages must remain in their own folders.
+		if ( ( $hook_extra['plugin'] ?? '' ) !== $this->config['slug'] ) {
+			return $true;
+		}
 
 		global $wp_filesystem;
 
 		// Move & Activate
 		$proper_destination = WP_PLUGIN_DIR.'/'.$this->config['proper_folder_name'];
-		$wp_filesystem->move( $result['destination'], $proper_destination );
+		if ( untrailingslashit( $result['destination'] ) !== untrailingslashit( $proper_destination ) ) {
+			if ( ! $wp_filesystem->move( $result['destination'], $proper_destination ) ) {
+				return new \WP_Error( 'hws_jeweltrak_update_destination', 'JewelTrak could not be moved into its plugin folder.' );
+			}
+		}
 		$result['destination'] = $proper_destination;
 		$activate = activate_plugin( WP_PLUGIN_DIR.'/'.$this->config['slug'] );
 
